@@ -100,7 +100,7 @@ contains
     TYPE(DECOMP_INFO) :: decomp
     integer(kind=MPI_OFFSET_KIND) :: filesize, disp
     integer, dimension(3) :: sizes, subsizes, starts
-    integer :: ierror, newtype, fh, data_type, info, gs
+    integer :: ierror, newtype, fh, data_type
 
     data_type = real_type
 
@@ -122,7 +122,7 @@ contains
     TYPE(DECOMP_INFO) :: decomp
     integer(kind=MPI_OFFSET_KIND) :: filesize, disp
     integer, dimension(3) :: sizes, subsizes, starts
-    integer :: ierror, newtype, fh, data_type, info, gs
+    integer :: ierror, newtype, fh, data_type
 
     data_type = complex_type
 
@@ -684,7 +684,7 @@ contains
     
     integer (kind=MPI_OFFSET_KIND) :: filesize, disp
     integer, dimension(3) :: sizes, subsizes, starts
-    integer :: i,j,k, ierror, newtype, fh
+    integer :: ierror, newtype, fh
 
     if (icoarse==1) then
        sizes(1) = xszS(1)
@@ -781,7 +781,7 @@ contains
     
     integer (kind=MPI_OFFSET_KIND) :: filesize, disp
     integer, dimension(4) :: sizes, subsizes, starts
-    integer :: i,j,k, ierror, newtype, fh
+    integer :: ierror, newtype, fh
 
     
     sizes(1) = xszP(1)
