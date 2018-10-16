@@ -1,0 +1,6 @@
+before_script:
+  - apt-get update -qq && apt-get install -y -qq gfortran openmpi-dev
+
+lint:
+  script:
+    make clean && make lint
