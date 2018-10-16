@@ -45,7 +45,8 @@ FFLAGS = -fpp -O3 -xHost -heap-arrays -shared-intel -mcmodel=large -safe-cray-pt
 else ifeq ($(CMP),gcc)
 FC = mpif90
 #FFLAGS = -O3 -funroll-loops -floop-optimize -g -Warray-bounds -fcray-pointer -x f95-cpp-input
-FFLAGS = -cpp  -funroll-loops -floop-optimize -g -Warray-bounds -fcray-pointer -fbacktrace -ffree-line-length-none
+all: FFLAGS = -cpp -funroll-loops -floop-optimize -g -Warray-bounds -fcray-pointer -fbacktrace -ffree-line-length-none
+lint: FFLAGS = -cpp -Warray-bounds -Wall -ffree-line-length-none
 endif
 
 
@@ -115,6 +116,8 @@ LINKOPT = $(FFLAGS)
 # Normally no need to change anything below
 
 all: incompact3d
+
+lint: incompact3d
 
 incompact3d : $(OBJDECOMP) $(OBJ)
 	$(FC) -o $@ $(LINKOPT) $(OBJDECOMP) $(OBJ) $(LIBFFT)
