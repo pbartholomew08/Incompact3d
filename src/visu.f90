@@ -480,7 +480,6 @@ subroutine mean_plane_x (f1,nx,ny,nz,fm1)
   integer,intent(in) :: nx, ny, nz
   real(mytype),intent(in),dimension(nx,ny,nz) :: f1
   real(mytype),intent(out),dimension(ny,nz) :: fm1
-  integer :: i,j,k
 
   fm1 = sum(f1,DIM=1)/real(nx,mytype)
   return
@@ -496,7 +495,6 @@ subroutine mean_plane_y (f2,nx,ny,nz,fm2)
   integer,intent(in) :: nx, ny, nz
   real(mytype),intent(in),dimension(nx,ny,nz) :: f2
   real(mytype),intent(out),dimension(nx,nz) :: fm2
-  integer :: i,j,k
 
   fm2 = sum(f2,DIM=2)/real(ny,mytype)
   return
@@ -512,7 +510,6 @@ subroutine mean_plane_z (f3,nx,ny,nz,fm3)
   integer,intent(in) :: nx, ny, nz
   real(mytype),intent(in),dimension(nx,ny,nz) :: f3
   real(mytype),intent(out),dimension(nx,ny) :: fm3
-  integer :: i,j,k
 
   fm3 = sum(f3,DIM=3)/real(nz,mytype)
   return
