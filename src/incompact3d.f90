@@ -17,8 +17,7 @@ PROGRAM incompact3d
 #endif
   implicit none
 
-  integer :: code,nlock,i,j,k,ii,bcx,bcy,bcz,fh,ierror
-  real(mytype) :: x,y,z,timeleft
+  integer :: code
   real(8) :: tstart,t1,trank,tranksum,ttotal,tremaining,telapsed
 
   TYPE(DECOMP_INFO) :: phG,ph1,ph2,ph3,ph4
