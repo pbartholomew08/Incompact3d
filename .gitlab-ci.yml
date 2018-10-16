@@ -1,5 +1,5 @@
 before_script:
-  - apt-get update -qq && apt-get install -y -qq build-essential gfortran libopenmpi-dev openmpi-bin
+  - apt-get update -qq && apt-get install -y -qq build-essential gfortran libopenmpi-dev openmpi-bin > /dev/null
 
 lint:
   script:
