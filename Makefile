@@ -15,7 +15,10 @@
 # generate a Git version string
 GIT_VERSION := $(shell git describe --tag --long --always)
 
-FLOW_TYPE = Lock-exchange# TGV# Channel-flow# Cylinder
+# FLOW_TYPE = Lock-exchange# TGV# Channel-flow# Cylinder
+FLOW_TYPE = TGV# Channel-flow# Cylinder
+# FLOW_TYPE = Channel-flow# Cylinder
+# FLOW_TYPE = Cylinder
 
 DEFS = -DVISU -DVISUEXTRA -DDOUBLE_PREC -DVERSION=\"$(GIT_VERSION)\"
 

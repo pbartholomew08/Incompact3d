@@ -9,7 +9,7 @@ subroutine ft_parameter(arg)
   USE variables
   USE flow_type
   USE complex_geometry
-  USE decomp_2d, only : nrank
+
   implicit none
 
   logical,intent(in) :: arg
@@ -94,12 +94,11 @@ subroutine init (ux1,uy1,uz1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi1,phis1,phiss1
 
-  real(mytype) :: y,r,um,r3,x,z,h,ct
-  real(mytype) :: cx0,cy0,cz0,hg,lg
-  integer :: k,j,i,ijk,fh,ierror,is,code
-  integer (kind=MPI_OFFSET_KIND) :: disp
+  real(mytype) :: x,y,z
+  integer :: k,j,i,ijk,is
 
-  integer, dimension (:), allocatable :: seed
+  !! Suppress unused
+  ep1(1,1,1) = ep1(1,1,1)
 
   if (iscalar==1) then
 
@@ -226,6 +225,11 @@ subroutine boundary_conditions (ux,uy,uz,phi)
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi
 
+  !! Suppress unused
+  ux(1,1,1) = ux(1,1,1)
+  uy(1,1,1) = uy(1,1,1)
+  uz(1,1,1) = uz(1,1,1)
+  phi(1,1,1,nphi) = phi(1,1,1,nphi)
 
 end subroutine boundary_conditions
 !********************************************************************
@@ -254,9 +258,12 @@ contains
     USE MPI
 
     real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: ep1
-    real(mytype) :: dxdydz, dxdz, x, xprobes, yprobes, zprobes
-    integer :: i,j,k,code
+    real(mytype) :: dxdydz, xprobes, yprobes, zprobes, dmy
+    integer :: i,j,k
     character :: a
+
+    !! Suppress unused
+    dmy = ep1(1,1,1)
 
     call alloc_x(vol1, opt_global=.true.)
     call alloc_x(volSimps1, opt_global=.true.)
@@ -373,13 +380,16 @@ contains
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1, uy1, uz1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi1
     
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,ep1,diss1
-    real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2
-    real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
-    real(mytype) :: mp(nphi),mps(nphi),vl,es,es1,ek,ek1,ds,ds1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,ep1
+    real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2,di2
+    real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,di3
+    real(mytype) :: mp(nphi),mps(nphi),es,es1,ek,ek1,ds,ds1,dmy
 
-    integer :: i,j,k,is,ijk,code,nvect1
+    integer :: ijk,code,nvect1
     nvect1=xsize(1)*xsize(2)*xsize(3)
+
+    !! Suppress unused variable
+    dmy = ep1(1,1,1)
 
     if (iscalar==1) then
 
