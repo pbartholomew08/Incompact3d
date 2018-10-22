@@ -7,9 +7,7 @@ subroutine parameter()
 
   implicit none
 
-  real(mytype) :: theta, cfl,cf2
-  integer :: longueur ,impi,j, is, total
-
+  integer :: is
 
 #ifdef DEBG
   if (nrank .eq. 0) print *,'# parameter start'
