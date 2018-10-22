@@ -108,11 +108,17 @@ subroutine boundary_conditions (ux1,uy1,uz1,phi1,ep1)
 
   implicit none
 
-  integer  :: i,j,k,is
+  integer  :: i,k,is
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi1
   real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: phi2
+  real(mytype) :: dmy
 
+  !! Supress unused argument
+  dmy = ep1(1,1,1)
+  dmy = ux1(1,1,1)
+  dmy = uy1(1,1,1)
+  dmy = uz1(1,1,1)
 
   do is=1, nphi
      if (uset(is) .eq. 0.) cycle
@@ -154,9 +160,11 @@ subroutine init (ux1,uy1,uz1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi1,phis1,phiss1
 
-  real(mytype) :: y,r,um,r1,r2,r3,x,z,h
-  integer :: k,j,i,ijk,fh,ierror,ii,is,code
-  integer (kind=MPI_OFFSET_KIND) :: disp
+  real(mytype) :: um,x,dmy
+  integer :: k,j,i,ijk,ii,is,code
+
+  !! Suppress unused argument
+  dmy = ep1(1,1,1)
 
   if (iscalar==1) then
 
@@ -265,10 +273,13 @@ contains
     USE MPI
 
     real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: ep1
-    real(mytype) :: dxdydz, dxdz, x, xprobes, yprobes, zprobes
-    integer :: i,j,k,code
+    real(mytype) :: dxdydz, dxdz, xprobes, yprobes, zprobes, dmy
+    integer :: i,j,k
     character :: a
 
+    !! Suppress unused argument
+    dmy = ep1(1,1,1)
+    
 #ifdef DEBG
     if (nrank .eq. 0) print *,'# init_post start'
 #endif
@@ -361,7 +372,9 @@ contains
     real(mytype),dimension(zsize(1),zsize(2),nphi) :: phim3
     integer :: i,j,k,is
 
-    real(mytype) :: mp(nphi),dms(nphi),xf(1:2,1:3),xf2d(1:2,1:2)
+    real(mytype) :: mp(nphi),dms(nphi),xf(1:2,1:3),xf2d(1:2,1:2),dmy
+
+    dmy = 1._mytype * ep1(1,1,1)
 
     if (mod(itime,iprocessing).ne.0) return
 
@@ -468,8 +481,8 @@ contains
     real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: phisum1
     real(mytype),intent(out) :: xp(1:2,1:3)
 
-    real(mytype) :: xp1(1:2),y
-    integer :: is, i, j ,k, code
+    real(mytype) :: xp1(1:2)
+    integer :: i, j ,k, code
 
     xp(2,:) = real(nrank,mytype)
     xp(1,:)=zero
@@ -499,7 +512,7 @@ contains
     real(mytype),intent(in),dimension(zstart(1):zend(1),zstart(2):zend(2),1:nphi) :: phim3
     real(mytype),intent(out) :: xp(1:2,1:2)
     real(mytype) :: xp1(1:2),y
-    integer :: is, i, j, code
+    integer :: i, j, code
 
     xp(2,:) = real(nrank,mytype)
     xp(1,:) = zero
@@ -531,7 +544,7 @@ contains
     real(mytype),dimension(ystart(1):yend(1),ystart(2):yend(2),ystart(3):yend(3),nphi) :: tempdep2
     real(mytype),dimension(ystart(1):yend(1),ystart(2):yend(2),ystart(3):yend(3),nphi) :: phi2
 
-    integer :: i, j, k, is
+    integer :: i, k, is
     character(len=30) :: filename
 
     dep2 = zero
@@ -591,13 +604,13 @@ contains
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,vol1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi1
 
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: diss1,dphiy1, dphixx1, dphiyy1, dphizz1, ddphi1, di1, temp1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: diss1,dphixx1,di1
     real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: phi2, dphiy2, dphixx2, dphiyy2, dphizz2, ddphi2, di2, vol2, temp2
-    real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: phi3, dphiy3, dphixx3, dphiyy3, dphizz3, ddphi3, di3, temp3
+    real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: phi3,dphizz3,di3,temp3
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1
-    real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2
-    real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3
+    real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ta2,tb2,tc2,td2,te2,tf2
+    real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3
     real(mytype),dimension(3,3,xsize(1),xsize(2),xsize(3)) :: A
 
     real(mytype),dimension(xszV(1),xszV(2),xszV(3)) :: uvisu
