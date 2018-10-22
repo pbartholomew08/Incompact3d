@@ -44,7 +44,10 @@ subroutine derx_00(tx,ux,rx,sx,ffx,fsx,fwx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx 
   real(mytype), dimension(ny,nz):: sx
-  real(mytype), dimension(nx):: ffx,fsx,fwx 
+  real(mytype), dimension(nx):: ffx,fsx,fwx
+
+  !! Suppress unused dummy argument
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -102,7 +105,11 @@ subroutine derx_11(tx,ux,rx,sx,ffx,fsx,fwx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx 
   real(mytype), dimension(ny,nz):: sx
-  real(mytype), dimension(nx):: ffx,fsx,fwx 
+  real(mytype), dimension(nx):: ffx,fsx,fwx
+
+  !! Suppress dummy argument
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -172,7 +179,11 @@ subroutine derx_12(tx,ux,rx,sx,ffx,fsx,fwx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,i,j,k,npaire
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx 
   real(mytype), dimension(ny,nz):: sx
-  real(mytype), dimension(nx):: ffx,fsx,fwx 
+  real(mytype), dimension(nx):: ffx,fsx,fwx
+
+  !! Suppress dummy arguments
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -239,7 +250,11 @@ subroutine derx_21(tx,ux,rx,sx,ffx,fsx,fwx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,i,j,k,npaire
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx 
   real(mytype), dimension(ny,nz):: sx
-  real(mytype), dimension(nx):: ffx,fsx,fwx 
+  real(mytype), dimension(nx):: ffx,fsx,fwx
+
+  !! Suppress unused argument
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -306,7 +321,12 @@ subroutine derx_22(tx,ux,rx,sx,ffx,fsx,fwx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,i,j,k,npaire
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx 
   real(mytype), dimension(ny,nz):: sx
-  real(mytype), dimension(nx):: ffx,fsx,fwx 
+  real(mytype), dimension(nx):: ffx,fsx,fwx
+
+  !! Suppress unused argument
+  npaire = 1 * npaire
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -349,6 +369,9 @@ subroutine dery_00(ty,uy,ry,sy,ffy,fsy,fwy,ppy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ry
   real(mytype), dimension(nx,nz)  :: sy
   real(mytype), dimension(ny) :: ffy,fsy,fwy,ppy
+
+  !! Suppress unused argument
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -444,6 +467,10 @@ subroutine dery_11(ty,uy,ry,sy,ffy,fsy,fwy,ppy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ry
   real(mytype), dimension(nx,nz)  :: sy
   real(mytype), dimension(ny) :: ffy,fsy,fwy,ppy
+
+  !! Suppress unused argument
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -564,6 +591,10 @@ subroutine dery_12(ty,uy,ry,sy,ffy,fsy,fwy,ppy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,nz)  :: sy
   real(mytype), dimension(ny) :: ffy,fsy,fwy,ppy
 
+  !! Suppress unused
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
+
   if(ilag.eq.1) call lagpoly(uy)
   if (npaire==1) then 
      do k=1,nz 
@@ -678,6 +709,10 @@ subroutine dery_21(ty,uy,ry,sy,ffy,fsy,fwy,ppy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ry
   real(mytype), dimension(nx,nz)  :: sy
   real(mytype), dimension(ny) :: ffy,fsy,fwy,ppy
+
+  !! Suppress unused
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -795,6 +830,11 @@ subroutine dery_22(ty,uy,ry,sy,ffy,fsy,fwy,ppy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,nz)  :: sy
   real(mytype), dimension(ny) :: ffy,fsy,fwy,ppy
 
+  !! Suppress unused
+  npaire = 1 * npaire
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
+
   if(ilag.eq.1) call lagpoly(uy)
 
   do k=1,nz 
@@ -865,6 +905,9 @@ subroutine derz_00(tz,uz,rz,sz,ffz,fsz,fwz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: ffz,fsz,fwz
+
+  !! Suppress unused
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -950,6 +993,10 @@ subroutine derz_11(tz,uz,rz,sz,ffz,fsz,fwz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: ffz,fsz,fwz
+
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -1061,6 +1108,10 @@ subroutine derz_12(tz,uz,rz,sz,ffz,fsz,fwz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: ffz,fsz,fwz
 
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
+
   if(ilag.eq.1) call lagpolz(uz)
 
   if (npaire==1) then
@@ -1169,6 +1220,10 @@ subroutine derz_21(tz,uz,rz,sz,ffz,fsz,fwz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: ffz,fsz,fwz
+
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -1279,6 +1334,11 @@ subroutine derz_22(tz,uz,rz,sz,ffz,fsz,fwz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: ffz,fsz,fwz
 
+  !! Suppress unused
+  npaire = 1 * npaire
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
+
   if(ilag.eq.1) call lagpolz(uz)
 
   do j=1,ny
@@ -1340,7 +1400,10 @@ subroutine derxx_dns_00(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -1431,7 +1494,11 @@ subroutine derxx_dns_11(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -1556,7 +1623,11 @@ subroutine derxx_dns_12(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -1667,7 +1738,11 @@ subroutine derxx_dns_21(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -1778,7 +1853,12 @@ subroutine derxx_dns_22(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  npaire = 1 * npaire
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -1834,7 +1914,10 @@ subroutine derxx_iles_00(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -1958,7 +2041,11 @@ subroutine derxx_iles_11(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -2140,7 +2227,11 @@ subroutine derxx_iles_12(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -2293,7 +2384,11 @@ subroutine derxx_iles_21(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -2446,7 +2541,12 @@ subroutine derxx_iles_22(tx,ux,rx,sx,sfx,ssx,swx,nx,ny,nz,npaire)
   integer :: nx,ny,nz,npaire,i,j,k
   real(mytype), dimension(nx,ny,nz) :: tx,ux,rx
   real(mytype), dimension(ny,nz) :: sx
-  real(mytype),  dimension(nx):: sfx,ssx,swx 
+  real(mytype),  dimension(nx):: sfx,ssx,swx
+
+  !! Suppress unused
+  npaire = 1 * npaire
+  rx(1,1,1) = 1.0_mytype * rx(1,1,1)
+  sx(1,1) = 1.0_mytype * sx(1,1)
 
   if(ilag.eq.1) call lagpolx(ux)
 
@@ -2518,6 +2618,9 @@ subroutine deryy_dns_00(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ty,uy,ry
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
+
+  !! Suppress unused
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -2642,6 +2745,10 @@ subroutine deryy_dns_11(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
 
+  !! Suppress unused
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
+  
   if(ilag.eq.1) call lagpoly(uy)
 
   if (npaire==1) then
@@ -2814,6 +2921,10 @@ subroutine deryy_dns_12(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
 
+  !! Suppress unused
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
+  
   if(ilag.eq.1) call lagpoly(uy)
 
   if (npaire==1) then
@@ -2970,6 +3081,10 @@ subroutine deryy_dns_21(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ty,uy,ry
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
+
+  !! Suppress unused
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -3128,6 +3243,11 @@ subroutine deryy_dns_22(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
 
+  !! Suppress unused
+  npaire = 1 * npaire
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
+
   if(ilag.eq.1) call lagpoly(uy)
 
   do k=1,nz
@@ -3206,6 +3326,9 @@ subroutine deryy_iles_00(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ty,uy,ry
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
+
+  !! Suppress unused
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -3360,6 +3483,9 @@ subroutine deryy_iles_11(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ty,uy,ry
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
+
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -3588,6 +3714,10 @@ subroutine deryy_iles_12(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
 
+  !! Suppress unused
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
+
   if(ilag.eq.1) call lagpoly(uy)
 
   if (npaire==1) then
@@ -3786,6 +3916,10 @@ subroutine deryy_iles_21(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: ty,uy,ry
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
+
+  !! Suppress unused
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
 
   if(ilag.eq.1) call lagpoly(uy)
 
@@ -3986,6 +4120,11 @@ subroutine deryy_iles_22(ty,uy,ry,sy,sfy,ssy,swy,nx,ny,nz,npaire)
   real(mytype), dimension(nx,nz) :: sy
   real(mytype), dimension(ny) :: sfy,ssy,swy
 
+  !! Suppress unused
+  npaire = 1 * npaire
+  ry(1,1,1) = 1.0_mytype * ry(1,1,1)
+  sy(1,1) = 1.0_mytype * sy(1,1)
+
   if(ilag.eq.1) call lagpoly(uy)
 
   do k=1,nz
@@ -4078,6 +4217,9 @@ subroutine derzz_dns_00(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
+
+  !! Suppress unused
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -4197,6 +4339,10 @@ subroutine derzz_dns_11(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
+
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -4363,6 +4509,10 @@ subroutine derzz_dns_12(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
 
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
+
   if(ilag.eq.1) call lagpolz(uz)
 
   if (npaire==1) then
@@ -4513,6 +4663,10 @@ subroutine derzz_dns_21(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
+
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -4665,6 +4819,11 @@ subroutine derzz_dns_22(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
 
+  !! Suppress unused
+  npaire = 1 * npaire
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
+
   if(ilag.eq.1) call lagpolz(uz)
 
   do j=1,ny
@@ -4740,6 +4899,9 @@ subroutine derzz_iles_00(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
+
+  !! Suppress unused
+  npaire = 1 * npaire
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -4891,6 +5053,10 @@ subroutine derzz_iles_11(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
+
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
 
   if(ilag.eq.1) call lagpolz(uz)
 
@@ -5114,6 +5280,10 @@ subroutine derzz_iles_12(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
 
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
+
   if(ilag.eq.1) call lagpolz(uz)
 
   if (npaire==1) then
@@ -5307,6 +5477,10 @@ subroutine derzz_iles_21(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
 
+  !! Suppress unused
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
+
   if(ilag.eq.1) call lagpolz(uz)
 
   if (npaire==1) then
@@ -5499,6 +5673,11 @@ subroutine derzz_iles_22(tz,uz,rz,sz,sfz,ssz,swz,nx,ny,nz,npaire)
   real(mytype), dimension(nx,ny,nz) :: tz,uz,rz
   real(mytype), dimension(nx,ny) :: sz 
   real(mytype), dimension(nz) :: sfz,ssz,swz
+
+  !! Suppress unused
+  npaire = 1 * npaire
+  rz(1,1,1) = 1.0_mytype * rz(1,1,1)
+  sz(1,1) = 1.0_mytype * sz(1,1)
 
   if(ilag.eq.1) call lagpolz(uz)
 
