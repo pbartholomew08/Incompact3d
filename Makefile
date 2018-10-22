@@ -52,7 +52,8 @@ FC = mpif90
 
 ## Use target specific variables to set FFLAGS all: takes optimisations, lint: takes maximum warnings
 # all: FFLAGS = -O3 -funroll-loops -floop-optimize -g -Warray-bounds -fcray-pointer -x f95-cpp-input
-all: FFLAGS = -cpp -funroll-loops -floop-optimize -g -Warray-bounds -fcray-pointer -fbacktrace -ffree-line-length-none
+all: FFLAGS = -cpp -O3 -funroll-loops -floop-optimize -g -Warray-bounds -fcray-pointer -fbacktrace -ffree-line-length-none
+dbg: FFLAGS = -cpp -g3 -Warray-bounds -Wall -Werror -fcray-pointer -fbacktrace -ffree-line-length-none
 lint: FFLAGS = -cpp -Warray-bounds -Wall -Werror -ffree-line-length-none
 endif
 
@@ -123,6 +124,8 @@ LINKOPT = $(FFLAGS)
 # Normally no need to change anything below
 
 all: incompact3d
+
+dbg: incompact3d
 
 lint: incompact3d
 
