@@ -9,13 +9,12 @@ subroutine ft_parameter(arg)
   USE variables
   USE flow_type
   USE complex_geometry
-  USE decomp_2d, only : nrank
   implicit none
 
   logical,intent(in) :: arg
   character :: a
 
-  open(10,file='../BC-dbg-schemes.prm',status='unknown',form='formatted')
+  open(10,file='./BC-dbg-schemes.prm',status='unknown',form='formatted')
   read (10,*) a !
   read (10,*) a ! INCOMPACT 3D computational parameters
   read (10,*) a !
@@ -94,6 +93,21 @@ subroutine init (ux1,uy1,uz1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi1,phis1,phiss1
 
+  !! Suppress unused
+  ep1=ep1
+  gx1=gx1
+  gy1=gy1
+  gz1=gz1
+  hx1=hx1
+  hy1=hy1
+  hz1=hz1
+  phi1=phi1
+  phis1=phis1
+  phiss1=phiss1
+  ux1=ux1
+  uy1=uy1
+  uz1=uz1
+
   call debug_schemes()
 
   return
@@ -109,6 +123,12 @@ subroutine boundary_conditions (ux,uy,uz,phi)
 
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi
+
+  !! Suppress unused
+  ux=ux
+  uy=uy
+  uz=uz
+  phi=phi
 
   return
 end subroutine boundary_conditions
