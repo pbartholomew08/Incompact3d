@@ -16,7 +16,7 @@ subroutine convdiff(ux1,uy1,uz1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
   real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ux3,uy3,uz3
   real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
 
-  integer :: ijk,nvect1,nvect2,nvect3,i,j,k,is
+  integer :: nvect1,nvect2,nvect3,i,j,k,is
 
 #ifdef ELES
   !############################## EXPLICIT LES MODELLING #######
@@ -67,6 +67,10 @@ subroutine convdiff(ux1,uy1,uz1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
   td3 = zero; te3 = zero; tf3 = zero
 
   !########################## ENDING EXPLIICIT LES TERMS ##################################
+#else
+  real(mytype) :: dmy
+  dmy = ep1(1,1,1)
+  dmy = nut1(1,1,1)
 #endif
 
   nvect1 = xsize(1)*xsize(2)*xsize(3)
@@ -279,7 +283,7 @@ subroutine convdiff(ux1,uy1,uz1,ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1,&
 end subroutine convdiff
 !************************************************************
 subroutine scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
-     uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,uz3,phi3,di3,ta3,tb3,epsi,nut1)
+     uy2,uz2,phi2,di2,ta2,tb2,tc2,td2,uz3,phi3,di3,ta3,tb3,nut1)
 
   USE param
   USE variables
@@ -287,20 +291,28 @@ subroutine scalar(ux1,uy1,uz1,phi1,phis1,phiss1,di1,ta1,tb1,tc1,td1,&
 
   implicit none
 
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,di1,ta1,tb1,tc1,td1,epsi,nut1
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,di1,ta1,tb1,tc1,td1,nut1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi1,phis1,phiss1
   real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: uy2,uz2,di2,ta2,tb2,tc2,td2
   real(mytype),dimension(ysize(1),ysize(2),ysize(3),nphi) :: phi2
   real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: uz3,di3,ta3,tb3
   real(mytype),dimension(zsize(1),zsize(2),zsize(3),nphi) :: phi3
   integer :: ijk,nvect1,nvect2,nvect3,i,j,k,is
+  real(mytype) :: dmy
 
 #ifdef ELES
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: kappat1
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: sgsphi1
   kappat1 = nut1 / pr_t
   call lesdiff_scalar(phi1, di1, di2, di3, kappat1, sgsphi1)
+#else
+  dmy = nut1(1,1,1)
 #endif
+
+  !! Suppress dummy arguments
+  dmy = uy1(1,1,1)
+  dmy = uz1(1,1,1)
+  dmy = uz2(1,1,1)
 
   nvect1 = xsize(1)*xsize(2)*xsize(3)
   nvect2 = ysize(1)*ysize(2)*ysize(3)
