@@ -103,7 +103,7 @@ if (nscheme.eq.2) then !AB3
 
 end subroutine intt
 !********************************************************************
-subroutine corgp (ux,gx,uy,uz,px,py,pz)
+subroutine corgp (ux,uy,uz,px,py,pz)
 
   USE decomp_2d
   USE variables
@@ -113,9 +113,8 @@ subroutine corgp (ux,gx,uy,uz,px,py,pz)
 
   implicit none
 
-  integer :: ijk,nxyz
+  integer :: ijk
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,px,py,pz
-  real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: gx
 
   do ijk=1,xsize(1)*xsize(2)*xsize(3)
     ux(ijk,1,1)=-px(ijk,1,1)+ux(ijk,1,1)
