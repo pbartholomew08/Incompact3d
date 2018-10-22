@@ -1263,7 +1263,7 @@ do j=1,xsize(2)
          xa(ia)=xi(i,j,k)
          ya(ia)=0.
          if(xi(i,j,k).gt.0.)then!objet immergé
-            ix=xi(i,j,k)/dx+1
+            ix=int(xi(i,j,k)/dx)+1
             ipoli=ix+1
             if(nxipif(i,j,k).lt.npif)nxpif=nxipif(i,j,k)
             do ipif=1,nxpif
@@ -1285,7 +1285,7 @@ do j=1,xsize(2)
          xa(ia)=xf(i,j,k)
          ya(ia)=0.
          if(xf(i,j,k).lt.xlx)then!objet immergé
-            ix=(xf(i,j,k)+dx)/dx+1
+            ix=int((xf(i,j,k)+dx)/dx)+1
             ipolf=ix-1
             if(nxfpif(i,j,k).lt.npif)nxpif=nxfpif(i,j,k)
             do ipif=1,nxpif
@@ -1446,7 +1446,7 @@ do i=1,zsize(1)
          xa(ia)=zi(k,i,j)
          ya(ia)=0.
          if(zi(k,i,j).gt.0.)then!objet immergé
-            kz=zi(k,i,j)/dz+1
+            kz=int(zi(k,i,j)/dz)+1
             kpoli=kz+1
             if(nzipif(k,i,j).lt.npif)nzpif=nzipif(k,i,j)
             do kpif=1,nzpif
@@ -1468,7 +1468,7 @@ do i=1,zsize(1)
          xa(ia)=zf(k,i,j)
          ya(ia)=0.
          if(zf(k,i,j).lt.zlz)then!objet immergé
-            kz=(zf(k,i,j)+dz)/dz+1
+            kz=int((zf(k,i,j)+dz)/dz)+1
             kpolf=kz-1
             if(nzfpif(k,i,j).lt.npif)nzpif=nzfpif(k,i,j)
             do kpif=1,nzpif
@@ -1566,7 +1566,7 @@ integer :: seed0, ii, code
 real(mytype) :: z_pos, randx, p_tr, b_tr, x_pos, y_pos, A_tr
 
 !Done in X-Pencils
-seed0=randomseed !Seed for random number
+seed0=int(randomseed) !Seed for random number
 !A_tr=A_trip*min(1.0,0.8+real(itime)/200.0)
 !xs_tr=4.0/2.853
 !ys_tr=2.0/2.853
@@ -1586,11 +1586,10 @@ call random_seed(PUT=seed0*(/ (1, i = 1, ii) /))
 
 
   do j=1,z_modes
-
-    call random_number(randx)
-    h_coeff(j)=1.0*(randx-0.5)
+     call random_number(randx)
+     h_coeff(j)=1.0*(randx-0.5)
   enddo
-    h_coeff=h_coeff/sqrt(DBLE(z_modes)) 
+  h_coeff=h_coeff/sqrt(REAL(z_modes))
 endif
 
 !Initialization h_nxt  (always bounded by xsize(3)^2 operations)
@@ -1620,7 +1619,7 @@ end if
             call random_number(randx)
             h_coeff(j)=1.0*(randx-0.5)
          enddo
-        h_coeff=h_coeff/sqrt(DBLE(z_modes)) !Non-dimensionalization
+        h_coeff=h_coeff/sqrt(REAL(z_modes)) !Non-dimensionalization
         end if
         
         call MPI_BCAST(h_coeff,z_modes,real_type,0,MPI_COMM_WORLD,code)
