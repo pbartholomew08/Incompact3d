@@ -65,7 +65,7 @@ contains
 
     implicit none
 
-    integer :: nx, ny, nz, i
+    integer :: nx, ny, nz
 
     if (nclx) then
        bcx=0
@@ -263,15 +263,7 @@ contains
     ! solution of Poisson as output
     real(mytype), dimension(:,:,:), intent(INOUT) :: rhs
 
-    integer, dimension(3) :: fft_start, fft_end, fft_size
-
-    complex(mytype) :: xyzk
-
-    complex(mytype) :: ytt,xtt,ztt,yt1,xt1,yt2,xt2
-    complex(mytype) :: xtt1,ytt1,ztt1,zt1,zt2
-
-
-    real(mytype) :: tmp1, tmp2,x ,y, z
+    real(mytype) :: tmp1,tmp2
     
     integer :: nx,ny,nz, i,j,k
 
@@ -331,7 +323,7 @@ contains
 
            !Print result in spectal space after Poisson
       !     if (abs(out(i,j,k)) > 1.0e-4) then
-      !        write(*,*) 'AFTER',i,j,k,out(i,j,k),xyzk
+      !        write(*,*) 'AFTER',i,j,k,out(i,j,k)
       !     end if
 
              ! post-processing backward
@@ -375,11 +367,10 @@ contains
 
     real(mytype), dimension(:,:,:), intent(INOUT) :: rhs
 
-    complex(mytype) :: xyzk
     real(mytype) :: tmp1, tmp2, tmp3, tmp4
     real(mytype) :: xx1,xx2,xx3,xx4,xx5,xx6,xx7,xx8
     
-    integer :: nx,ny,nz, i,j,k, itmp
+    integer :: nx,ny,nz,i,j,k
 
 #ifdef DEBUG
 100 format(1x,a8,3I4,2F12.6)
@@ -506,7 +497,6 @@ contains
              !tmp2=aimag(zk2(k)+yk2(j)+xk2(i))
              tmp1=real(kxyz(i,j,k), kind=mytype)
              tmp2=aimag(kxyz(i,j,k))
-             !xyzk=cmplx(tmp1,tmp2, kind=mytype)
              ! CANNOT DO A DIVISION BY ZERO
              if ((abs(tmp1).lt.epsilon).and.(abs(tmp2).lt.epsilon)) then    
                 cw1b(i,j,k)=cmplx(0._mytype,0._mytype, kind=mytype)
@@ -634,7 +624,6 @@ contains
 
     real(mytype), dimension(:,:,:), intent(INOUT) :: rhs
 
-    complex(mytype) :: xyzk
     real(mytype) :: tmp1, tmp2, tmp3, tmp4
     real(mytype) :: xx1,xx2,xx3,xx4,xx5,xx6,xx7,xx8
 
@@ -768,7 +757,6 @@ contains
              !tmp2=aimag(zk2(k)+yk2(j)+xk2(i))
              tmp1=real(kxyz(i,j,k), kind=mytype)
              tmp2=aimag(kxyz(i,j,k))
-             !xyzk=cmplx(tmp1,tmp2, kind=mytype)
              !CANNOT DO A DIVISION BY ZERO
              if ((abs(tmp1).lt.epsilon).and.(abs(tmp2).lt.epsilon)) then
                 cw2b(i,j,k)=cmplx(0._mytype,0._mytype, kind=mytype)
@@ -1006,7 +994,6 @@ contains
 
     real(mytype), dimension(:,:,:), intent(INOUT) :: rhs
 
-    complex(mytype) :: xyzk
     real(mytype) :: tmp1, tmp2, tmp3, tmp4
     real(mytype) :: xx1,xx2,xx3,xx4,xx5,xx6,xx7,xx8
 
@@ -1198,7 +1185,6 @@ contains
              !tmp2=aimag(zk2(k)+yk2(j)+xk2(i))
              tmp1=real(kxyz(i,j,k), kind=mytype)
              tmp2=aimag(kxyz(i,j,k))
-             !xyzk=cmplx(tmp1,tmp2, kind=mytype)
              !CANNOT DO A DIVISION BY ZERO
              if ((abs(tmp1).lt.epsilon).and.(abs(tmp2).lt.epsilon)) then
                 cw1b(i,j,k)=cmplx(0._mytype,0._mytype, kind=mytype)
