@@ -8,12 +8,11 @@ subroutine stabiltemp() !from Erik, adapted by Leonardo Romero Monteiro
 
   complex(mytype) :: z,eit,ei2t,ei3t,eimt,eim2t,eim3t
   real(mytype) :: theta, dtheta, cc, fourier, cfl
-  real(mytype) :: xkm, xk, xkp, xks, xkf, x, y
+  real(mytype) :: xkm, xk, xkp, xks, x, y
   real(mytype) :: am1, a0, a1, a2, a3
   real(mytype) :: bm1, b0, b1, b2, b3
   real(mytype) :: alpha1, c1, c11
   real(mytype) :: alpha2, c2
-  real(mytype) :: alpha3, beta3, c3, d3
   integer :: i,ntheta,order
 
   ntheta=360
@@ -187,7 +186,7 @@ USE MPI
 
 implicit none
 
-integer :: code,ierror,ijk,is
+integer :: code,ijk,is
 real(mytype) :: phimax,phimin,phimax1,phimin1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3),nphi) :: phi
 
@@ -226,7 +225,7 @@ USE MPI
 
 implicit none
 
-integer :: code,ierror,ijk
+integer :: code,ijk
 real(mytype) :: uxmax,uymax,uzmax,uxmin,uymin,uzmin
 real(mytype) :: uxmax1,uymax1,uzmax1,uxmin1,uymin1,uzmin1
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
@@ -271,7 +270,7 @@ endif
 return
 end subroutine test_speed_min_max
 !*******************************************************************
-subroutine restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,px1,py1,pz1,phis1,&
+subroutine restart(ux1,uy1,uz1,pp3,phi1,gx1,gy1,gz1,px1,py1,pz1,phis1,&
      hx1,hy1,hz1,phiss1,phG,irestart)
 
   USE decomp_2d
@@ -285,7 +284,7 @@ subroutine restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,px1,py1,pz1,phis1,&
   TYPE(DECOMP_INFO) :: phG
   integer :: i,j,k,irestart,nzmsize,fh,ierror,is,code
   integer :: ierror_o=0 !error to open sauve file during restart
-  real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
+  real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
   real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: gx1,gy1,gz1
   real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: hx1,hy1,hz1
   real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: px1,py1,pz1

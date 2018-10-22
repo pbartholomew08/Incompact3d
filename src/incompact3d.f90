@@ -56,7 +56,7 @@ PROGRAM incompact3d
 
   if (ilit==0) call init(ux1,uy1,uz1,ep1,phi1,gx1,gy1,gz1,phis1,hx1,hy1,hz1,phiss1)
 
-  if (ilit==1) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
+  if (ilit==1) call restart(ux1,uy1,uz1,pp3,phi1,gx1,gy1,gz1,&
        px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,0)
 
 
@@ -225,7 +225,7 @@ PROGRAM incompact3d
 #endif
 
 #ifdef VISU
-     if (mod(itime,isave).eq.0) call restart(ux1,uy1,uz1,ep1,pp3,phi1,gx1,gy1,gz1,&
+     if (mod(itime,isave).eq.0) call restart(ux1,uy1,uz1,pp3,phi1,gx1,gy1,gz1,&
           px1,py1,pz1,phis1,hx1,hy1,hz1,phiss1,phG,1)
 #endif
      call cpu_time(trank)
