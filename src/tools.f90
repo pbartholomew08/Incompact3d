@@ -282,7 +282,7 @@ subroutine restart(ux1,uy1,uz1,pp3,phi1,gx1,gy1,gz1,px1,py1,pz1,phis1,&
   implicit none
 
   TYPE(DECOMP_INFO) :: phG
-  integer :: i,j,k,irestart,nzmsize,fh,ierror,is,code
+  integer :: i,j,k,irestart,fh,ierror,is,code
   integer :: ierror_o=0 !error to open sauve file during restart
   real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
   real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: gx1,gy1,gz1
@@ -596,7 +596,7 @@ subroutine stretching()
 
   implicit none
 
-  real(mytype) :: yinf,den,xnum,xcx,den1,den2,den3,den4,xnum1,cst
+  real(mytype) :: yinf,den,xnum,xcx,den1,den3,den4,xnum1,cst
   integer :: j
 
   yinf=-yly/two
@@ -1243,7 +1243,6 @@ implicit none
 !
 real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: u
 integer                                            :: i,j,k
-real(mytype)                                       :: x,y,z
 integer                                            :: ix              != position du point "zappé"
 integer                                            :: ipif,ipol,nxpif
 integer                                            :: ipoli,ipolf     != positions Initiales et Finales du POLynôme considéré
@@ -1331,7 +1330,6 @@ implicit none
 !
 real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: u
 integer                                            :: i,j,k
-real(mytype)                                       :: x,y,z
 integer                                            :: jy              != position du point "zappé"
 integer                                            :: jpif,jpol,nypif
 integer                                            :: jpoli,jpolf     != positions Initiales et Finales du POLynôme considéré
@@ -1426,7 +1424,6 @@ implicit none
 !
 real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: u
 integer                                            :: i,j,k
-real(mytype)                                       :: x,y,z
 integer                                            :: kz              != position du point "zappé"
 integer                                            :: kpif,kpol,nzpif
 integer                                            :: kpoli,kpolf     != positions Initiales et Finales du POLynôme considéré
