@@ -356,7 +356,7 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
   return
 end subroutine gradp
 !*******************************************************************
-subroutine pre_correc(ux,uy,uz,ep)
+subroutine pre_correc(ux,uy,uz)
 
   USE decomp_2d
   USE variables
@@ -366,7 +366,7 @@ subroutine pre_correc(ux,uy,uz,ep)
 
   implicit none
 
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,ep
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
   integer :: i,j,k,code,is
   real(mytype) :: ut,ut1,utt,ut11
 
