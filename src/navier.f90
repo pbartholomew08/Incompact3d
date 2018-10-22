@@ -244,9 +244,7 @@ subroutine gradp(ta1,tb1,tc1,di1,td2,tf2,ta2,tb2,tc2,di2,&
   implicit none
 
   TYPE(DECOMP_INFO) :: ph2,ph3
-  integer :: i,j,k,ijk,nxmsize,nymsize,nzmsize,code
-  integer, dimension(2) :: dims, dummy_coords
-  logical, dimension(2) :: dummy_periods
+  integer :: i,j,k,nxmsize,nymsize,nzmsize
 
   real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),nzmsize) :: pp3
   !Z PENCILS NXM NYM NZM-->NXM NYM NZ
@@ -367,7 +365,7 @@ subroutine pre_correc(ux,uy,uz)
   implicit none
 
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
-  integer :: i,j,k,code,is
+  integer :: i,j,k,code
   real(mytype) :: ut,ut1,utt,ut11
 
   !********NCLZ==2*************************************
@@ -649,8 +647,8 @@ subroutine square(ycenter,zcenter,xthick,xlenght,ux,uy,uz,esp)
   USE variables
   implicit none
   real(mytype), dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: ux,uy,uz,esp
-  real(mytype) :: ycenter,zcenter,xthick,xlenght,slenght,xz1,xz2,xy1,xy2
-  integer :: j1,j2,z1,z2,iep,i,j,k,k1,k2,ilen
+  real(mytype) :: ycenter,zcenter,xthick,xlenght
+  integer :: j1,iep,i,j,k,k1,k2,ilen
 
   iep=int(xthick*ny/yly)
   ilen=int(xlenght*ny/yly)
@@ -716,13 +714,10 @@ subroutine forcage_square(ux,uy,uz,esp)
   USE variables
   implicit none
   real(mytype), dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: ux,uy,uz,esp
-  real(mytype),dimension(nz) :: xx1
-  real(mytype),dimension(ny) :: yy1
-  integer :: j, i, k, np,i1 ,ii
+  integer :: ii
   real(mytype) :: ep0,ep1,ep2,ep3
   real(mytype) :: l0,l1,l2,l3,l4
   real(mytype), dimension(4) :: l5,l6
-  real(mytype) :: y,z
   esp(:,:,:)=zero
 
   ep3=two/five !0.4  Tr=8.5 grid tmin=2.1, t2=4.2, t1=8.6, tmax=17.5
