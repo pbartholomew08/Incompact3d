@@ -1,16 +1,22 @@
-# -*- mode: org -*-
+# -*- mode: org; org-confirm-babel-evaluate: nil -*-
 
 #+TITLE: Incompact3D Case Definition: Taylor-Green Vortex
 #+AUTHOR: Paul Bartholomew
 
+#+STARTUP: inlineimages
 #+OPTIONS: toc:nil
 
-#+LATEX_HEADER: \hypersetup{colorlinks, linkcolor=red, urlcolor=blue}
+#+LATEX_CLASS_OPTIONS: [a4paper, 10pt]
 #+LATEX_HEADER: \usepackage{fullpage}
+#+LATEX_HEADER: \usepackage{fancyvrb}
+#+LATEX_HEADER: \fvset{fontsize=\footnotesize}
+#+LATEX_HEADER: \RecustomVerbatimEnvironment{verbatim}{Verbatim}{xleftmargin=5mm, samepage=true}
+#+LATEX_HEADER: \hypersetup{colorlinks, linkcolor=red, urlcolor=blue}
 
 #+BEGIN_ABSTRACT
 This document is the case definition file for Incompact3D, it is a literate program written in Emacs
-org-mode and allows simple access to user-facing aspects of the Incompact3D Navier-Stokes solver.
+org-mode and is intended simplify access to user-facing aspects of the Incompact3D Navier-Stokes
+solver.
 To setup a case, edit this document as appropriate - for example change the size of the mesh by
 editing the numbers in mesh size - then run ~make tangle~ to ``tangle'' these changes into the
 Incompact3D source code, followed by ~make build~ to compile these changes.
@@ -174,13 +180,11 @@ Here you can set the options for numerical dissipation, variables are:
 #+BEGIN_LATEX
   \pagebreak
 #+END_LATEX
-
 * Post Processing
 
 #+BEGIN_LATEX
   \pagebreak
 #+END_LATEX
-
 * incompact3d.prm
 # This code-block generates the file ~incompact3d.prm~ - hopefully you won't have to edit it.
 
