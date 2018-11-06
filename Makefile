@@ -1,5 +1,12 @@
 #=======================================================================
-# Makefile for Incompact3D modified by Ricardo
+#
+#                      Makefile for Incompact3D
+#
+# Modified: - [2018-11-06] Change from using BC-$(FLOW_TYPE).f90 to
+#             case.f90.
+#             Paul Bartholomew <paul.bartholomew08@imperial.ac.uk>
+#           - [unknown] Ricardo
+#
 #=======================================================================
 # Choose pre-processing options
 #   -DDOUBLE_PREC - use double-precision
@@ -16,31 +23,33 @@
 GIT_VERSION := $(shell git describe --tag --long --always)
 
 #######Select Flow Type#######
-FLOW_TYPE = Lock-exchange
-# FLOW_TYPE = TGV
+# FLOW_TYPE = Lock-exchange
+FLOW_TYPE = TGV
 # FLOW_TYPE = Channel-flow
 # FLOW_TYPE = Cylinder
 # FLOW_TYPE = dbg-schemes
 
-DEFS = -DVISU -DVISUEXTRA -DDOUBLE_PREC -DVERSION=\"$(GIT_VERSION)\"
+# DEFS = -DVISU -DVISUEXTRA -DDOUBLE_PREC -DVERSION=\"$(GIT_VERSION)\"
 
-LCL = local# local,lad,sdu,archer
-IVER = 17# 15,16,17,18
-CMP = gcc# intel,gcc
-FFT = generic# mkl,generic,fftw3
+# LCL = local# local,lad,sdu,archer
+# IVER = 17# 15,16,17,18
+# CMP = gcc# intel,gcc
+# FFT = generic# mkl,generic,fftw3
 
-#######Minimum defs###########
-ifeq ($(FLOW_TYPE),Channel-flow)
-DEFS2 = -DSTRETCHING -DPOST
-else ifeq ($(FLOW_TYPE),Cylinder)
-DEFS2 = -DIBM -DFORCES
-else ifeq ($(FLOW_TYPE),Lock-exchange)
-DEFS2 = -DPOST
-else ifeq ($(FLOW_TYPE),Periodic-hill)
-DEFS2 = -DIBM -DSTRETCHING -DPOST
-else ifeq ($(FLOW_TYPE),TGV)
-DEFS2 = -DPOST
-endif
+# #######Minimum defs###########
+# ifeq ($(FLOW_TYPE),Channel-flow)
+# DEFS2 = -DSTRETCHING -DPOST
+# else ifeq ($(FLOW_TYPE),Cylinder)
+# DEFS2 = -DIBM -DFORCES
+# else ifeq ($(FLOW_TYPE),Lock-exchange)
+# DEFS2 = -DPOST
+# else ifeq ($(FLOW_TYPE),Periodic-hill)
+# DEFS2 = -DIBM -DSTRETCHING -DPOST
+# else ifeq ($(FLOW_TYPE),TGV)
+# DEFS2 = -DPOST
+# endif
+
+include case/Makefile
 
 #######CMP settings###########
 ifeq ($(CMP),intel)
@@ -61,17 +70,18 @@ endif
 MODDIR = ./mod  
 DECOMPDIR = ./decomp2d
 SRCDIR = ./src
+CASEDIR = ./case
 
 ### List of files for the main code
 SRCDECOMP = $(DECOMPDIR)/decomp_2d.f90 $(DECOMPDIR)/glassman.f90 $(DECOMPDIR)/fft_$(FFT).f90 $(DECOMPDIR)/module_param.f90 $(DECOMPDIR)/io.f90 
 OBJDECOMP = $(SRCDECOMP:%.f90=%.o)
 SRC = $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/*.f90
 OBJ = $(SRC:%.f90=%.o)
-SRC = $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/BC-$(FLOW_TYPE).f90 $(SRCDIR)/implicit.f90 $(SRCDIR)/convdiff.f90 $(SRCDIR)/navier.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/tools.f90 $(SRCDIR)/visu.f90 $(SRCDIR)/paraview.f90 $(SRCDIR)/genepsi3d.f90 $(SRCDIR)/filter.f90 $(SRCDIR)/les_models.f90 $(SRCDIR)/incompact3d.f90
+SRC = $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/case.f90 $(SRCDIR)/implicit.f90 $(SRCDIR)/convdiff.f90 $(SRCDIR)/navier.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/tools.f90 $(SRCDIR)/visu.f90 $(SRCDIR)/paraview.f90 $(SRCDIR)/genepsi3d.f90 $(SRCDIR)/filter.f90 $(SRCDIR)/les_models.f90 $(SRCDIR)/incompact3d.f90
 
 
 ### List of files for the post-processing code
-PSRC = decomp_2d.f90 module_param.f90 io.f90 variables.f90 schemes.f90 derive.f90 BC-$(FLOW_TYPE).f90 parameters.f90 tools.f90 visu.f90 paraview.f90 post.f90
+PSRC = decomp_2d.f90 module_param.f90 io.f90 variables.f90 schemes.f90 derive.f90 case.f90 parameters.f90 tools.f90 visu.f90 paraview.f90 post.f90
 
 ######MKL INSTALL PATH######
 ifeq ($(LCL),local)
@@ -118,7 +128,7 @@ else ifeq ($(FFT),generic)
 endif
 
 #######OPTIONS settings###########
-OPT = -I$(SRCDIR) -I$(DECOMPDIR) $(FFLAGS)
+OPT = -I$(CASEDIR) -I$(SRCDIR) -I$(DECOMPDIR) $(FFLAGS)
 LINKOPT = $(FFLAGS)
 #-----------------------------------------------------------------------
 # Normally no need to change anything below
@@ -161,3 +171,7 @@ clean:
 .PHONY: cleanall
 cleanall: clean
 	rm -f *~ \#*\# out/* data/* stats/* planes/* *.xdmf *.log *.out nodefile core sauve*
+
+# Print variable definitions
+.PHONY: all
+all: ; $(info $$DEFS = ${DEFS}) $(info $$DEFS2 = ${DEFS2})
