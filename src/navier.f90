@@ -160,7 +160,8 @@ subroutine corpg (ux,uy,uz,px,py,pz)
   implicit none
 
   integer :: ijk,nxyz
-  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,px,py,pz
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
+  real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: px,py,pz
 
   ux(:,:,:)=-px(:,:,:)+ux(:,:,:)
   uy(:,:,:)=-py(:,:,:)+uy(:,:,:)
@@ -304,7 +305,7 @@ subroutine gradp(px1,py1,pz1,pp3)
   integer, dimension(2) :: dims, dummy_coords
   logical, dimension(2) :: dummy_periods
 
-  real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),nzmsize) :: pp3
+  real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),nzmsize),intent(in) :: pp3
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: px1,py1,pz1
 
   !WORK Z-PENCILS

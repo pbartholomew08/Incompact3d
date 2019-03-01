@@ -128,9 +128,9 @@ CONTAINS
 
   SUBROUTINE postprocessing(ux,uy,uz,phi,ep)
     
-    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
-    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),numscalar) :: phi
-    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ep
+    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)),INTENT(IN) :: ux,uy,uz
+    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),numscalar),INTENT(IN) :: phi
+    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)),INTENT(IN) :: ep
 
     IF (itype.EQ.itype_lockexch) THEN
 
@@ -141,11 +141,11 @@ CONTAINS
        
     ELSEIF (itype.EQ.itype_tgv) THEN
        
-       CALL postprocessing_tgv (ux, uy, uz, phi, ep)
+       CALL postprocessing_tgv (ux, uy, uz, phi)
        
     ELSEIF (itype.EQ.itype_channel) THEN
        
-       CALL postprocessing_channel (ux, uy, uz, phi, ep)
+       CALL postprocessing_channel (ux, uy, uz, phi)
        
     ELSEIF (itype.EQ.itype_hill) THEN
 
