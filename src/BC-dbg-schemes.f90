@@ -20,7 +20,7 @@ module dbg_schemes
   integer :: nprobes
 
   PRIVATE ! All functions/subroutines private by default
-  PUBLIC :: init_dbg, boundary_conditions_dbg, postprocessing_dbg
+  PUBLIC :: init_dbg
 
 contains
   !********************************************************************
@@ -46,19 +46,6 @@ contains
     return
   end subroutine init_dbg
   !********************************************************************
-  subroutine boundary_conditions_dbg (ux,uy,uz,phi)
-
-    USE param
-    USE variables
-    USE decomp_2d
-
-    implicit none
-
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
-
-    return
-  end subroutine boundary_conditions_dbg
 
   function sin_prec(x) result(y)
     USE decomp_2d, only : mytype
@@ -794,15 +781,6 @@ contains
     real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: ep1
 
   end subroutine init_post
-
-  subroutine postprocessing_dbg(ux1,uy1,uz1,phi1,ep1)
-
-    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1, uy1, uz1
-    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
-
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ep1
-
-  end subroutine postprocessing_dbg
 
   subroutine write_probes(ux1,uy1,uz1,phi1)
 

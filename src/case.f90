@@ -118,10 +118,6 @@ CONTAINS
        
        CALL boundary_conditions_cyl (ux, uy, uz, phi)
        
-    ELSEIF (itype.EQ.itype_dbg) THEN
-       
-       CALL boundary_conditions_dbg (ux, uy, uz, phi)
-       
     ENDIF
     
   END SUBROUTINE boundary_conditions
@@ -157,10 +153,6 @@ CONTAINS
     ELSEIF (itype.EQ.itype_cyl) THEN
        
        CALL postprocessing_cyl (ux, uy, uz, phi, ep)
-       
-    ELSEIF (itype.EQ.itype_dbg) THEN
-       
-       CALL postprocessing_dbg (ux, uy, uz, phi, ep)
        
     ENDIF
   END SUBROUTINE postprocessing
