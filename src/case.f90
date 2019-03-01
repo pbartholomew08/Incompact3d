@@ -47,9 +47,9 @@ MODULE case
 
 CONTAINS
 
-  SUBROUTINE init (ux1, uy1, uz1, ep1, phi1, dux1, duy1, duz1, phis1, phiss1)
+  SUBROUTINE init (ux1, uy1, uz1, phi1, dux1, duy1, duz1, phis1, phiss1)
 
-    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
+    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),numscalar) :: phi1,phis1,phiss1
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1
 
@@ -62,11 +62,11 @@ CONTAINS
        
     ELSEIF (itype.EQ.itype_tgv) THEN
        
-       CALL init_tgv (ux1, uy1, uz1, ep1, phi1, dux1, duy1, duz1, phis1, phiss1)
+       CALL init_tgv (ux1, uy1, uz1, phi1, dux1, duy1, duz1, phis1, phiss1)
        
     ELSEIF (itype.EQ.itype_channel) THEN
        
-       CALL init_channel (ux1, uy1, uz1, ep1, phi1, dux1, duy1, duz1, phis1, phiss1)
+       CALL init_channel (ux1, uy1, uz1, phi1, dux1, duy1, duz1, phis1, phiss1)
        
     ELSEIF (itype.EQ.itype_hill) THEN
 
@@ -77,11 +77,11 @@ CONTAINS
        
     ELSEIF (itype.EQ.itype_cyl) THEN
        
-       CALL init_cyl (ux1, uy1, uz1, ep1, phi1, dux1, duy1, duz1, phis1, phiss1)
+       CALL init_cyl (ux1, uy1, uz1, phi1, dux1, duy1, duz1, phis1, phiss1)
        
     ELSEIF (itype.EQ.itype_dbg) THEN
        
-       CALL init_dbg (ux1, uy1, uz1, ep1, phi1, dux1, duy1, duz1, phis1, phiss1)
+       CALL init_dbg ()
        
     ENDIF
 

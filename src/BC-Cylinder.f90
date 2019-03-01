@@ -182,7 +182,7 @@ contains
     return
   end subroutine outflow
   !********************************************************************
-  subroutine init_cyl (ux1,uy1,uz1,ep1,phi1,dux1,duy1,duz1,phis1,phiss1)
+  subroutine init_cyl (ux1,uy1,uz1,phi1,dux1,duy1,duz1,phis1,phiss1)
 
     USE decomp_2d
     USE decomp_2d_io
@@ -192,7 +192,7 @@ contains
 
     implicit none
 
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1,phis1,phiss1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1
 
