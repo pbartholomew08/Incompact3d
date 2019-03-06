@@ -116,6 +116,7 @@ PROGRAM incompact3d
      call simu_stats(2)
      
      call postprocessing(ux1,uy1,uz1,phi1,ep1)
+     CALL visu(ux1, uy1, uz1, itime-1)
      
      do itr=1,iadvance_time
 
@@ -179,7 +180,6 @@ PROGRAM incompact3d
 
      call simu_stats(3)
 
-     CALL visu(ux1, uy1, uz1, itime)
      !!----------------------------------------------------------------------------
      !! End post-processing / IO
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
