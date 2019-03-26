@@ -64,7 +64,7 @@ CONTAINS
 
     IF (itype.EQ.itype_user) THEN
        
-       CALL init_user (ux1, uy1, uz1, ep1, phi1, dux1, duy1, duz1, dphi1)
+       CALL init_user (rho1, ux1, uy1, uz1, ep1, phi1, drho1, dux1, duy1, duz1, dphi1)
        
     ELSEIF (itype.EQ.itype_lockexch) THEN
 

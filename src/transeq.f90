@@ -368,6 +368,11 @@ CONTAINS
     ta1 = ta1+tc1 !SECOND DERIVATIVE
     tb1 = tb1+td1 !FIRST DERIVATIVE
 
+    ta1 = zero
+    if (nrank.eq.0) then
+       print *, "WARNING: disabled scalar diffusion!"
+    endif
+    
     dphi1(:,:,:,1) = (xnu/schmidt)*ta1(:,:,:) - tb1(:,:,:)
 
     !! XXX We have computed rho dphidt, want dphidt

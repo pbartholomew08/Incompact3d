@@ -97,9 +97,11 @@ subroutine parameter(input_i3d)
   read(10, nml=NumOptions)
   read(10, nml=InOutParam)
   read(10, nml=Statistics)
+  
   if (iibm.ne.0) then
      read(10, nml=ibmstuff)
   endif
+  
   if (ilmn) then
      if (numscalar.ne.0) then
         allocate(massfrac(numscalar))
@@ -129,18 +131,24 @@ subroutine parameter(input_i3d)
         endif
      endif
   endif
+  
   if (numscalar.ne.0) then
      iscalar = 1
+     
      !! Set Scalar BCs same as fluid (may be overridden)
      nclxS1 = nclx1; nclxSn = nclxn
      nclyS1 = ncly1; nclySn = nclyn
      nclzS1 = nclz1; nclzSn = nclzn
+     
      allocate(sc(numscalar))
+     
      read(10, nml=ScalarParam)
   endif
+  
   ! !! These are the 'optional'/model parameters
   ! read(10, nml=TurbulenceModel)
   ! read(10, nml=TurbulenceWallModel)
+  
   close(10)
 
   ! allocate(sc(numscalar),cp(numscalar),ri(numscalar),group(numscalar))
