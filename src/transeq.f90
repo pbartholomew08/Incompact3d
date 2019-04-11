@@ -28,7 +28,7 @@ CONTAINS
     !! OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1
 
-    integer :: ijk,nvect1,nvect2,nvect3,i,j,k,is
+    integer :: i,j,k,is
 
     !SKEW SYMMETRIC FORM
     !WORK X-PENCILS
@@ -242,18 +242,25 @@ CONTAINS
 
     ! If LES modelling is enabled, add the SGS stresses
     if (ilesmod.ne.0.and.jles.le.3.) then
-        ! Wall model for LES
-        if (iwall.eq.1) then 
-        call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,ep1,1)
-        else
-        call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,ep1,0)
-        endif
-        ! Calculate SGS stresses (conservative/non-conservative formulation)
-        dux1(:,:,:,1) = dux1(:,:,:,1) + sgsx1(:,:,:)
-        duy1(:,:,:,1) = duy1(:,:,:,1) + sgsy1(:,:,:)
-        duz1(:,:,:,1) = duz1(:,:,:,1) + sgsz1(:,:,:)
+       ! Wall model for LES
+       if (iwall.eq.1) then 
+          call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,ep1,1)
+       else
+          call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,ep1,0)
+       endif
+       ! Calculate SGS stresses (conservative/non-conservative formulation)
+       dux1(:,:,:,1) = dux1(:,:,:,1) + sgsx1(:,:,:)
+       duy1(:,:,:,1) = duy1(:,:,:,1) + sgsy1(:,:,:)
+       duz1(:,:,:,1) = duz1(:,:,:,1) + sgsz1(:,:,:)
     endif
 
+    !! Gravity
+    call momentum_gravity(dux1, duy1, duz1, rho1(:,:,:,1) - one, zero)
+    do is = 1, numscalar
+       call momentum_gravity(dux1, duy1, duz1, phi1(:,:,:,is), ri(is))
+    enddo
+
+    !! Additional forcing
     call momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1)
 
     if (itrip == 1) then
@@ -264,7 +271,7 @@ CONTAINS
   end subroutine momentum_rhs_eq
   !************************************************************
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!
   !!  SUBROUTINE: momentum_full_viscstress_tensor
   !!      AUTHOR: Paul Bartholomew
@@ -281,14 +288,14 @@ CONTAINS
   !!              contributions not accounted for in the
   !!              incompressible solver.
   !!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   subroutine momentum_full_viscstress_tensor(ta1, tb1, tc1, divu3)
 
     USE param
     USE variables
     USE decomp_2d
     USE var, only : td1,te1,tf1,tg1,di1
-    USE var, only : ta2,tb2,tc2,td2,di2
+    USE var, only : ta2,tb2,tc2,di2
     USE var, only : tc3,di3
 
     IMPLICIT NONE
@@ -296,7 +303,6 @@ CONTAINS
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ta1, tb1, tc1
     REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: divu3
 
-    INTEGER :: i, j, k
     REAL(mytype) :: one_third
 
     one_third = one / three
@@ -318,7 +324,145 @@ CONTAINS
 
   end subroutine momentum_full_viscstress_tensor
 
-  subroutine scalar_transport_eq(dphi1, rho1, ux1, uy1, uz1, phi1, schmidt)
+  subroutine momentum_gravity(dux1, duy1, duz1, peculiar_density1, richardson)
+
+    use decomp_2d
+    use param
+    use variables
+
+    implicit none
+
+    !! Inputs
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: peculiar_density1
+    real(mytype), intent(in) :: richardson
+
+    !! InOut
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime) :: dux1, duy1, duz1
+
+    !! Locals
+    integer :: istart, jstart, kstart
+    integer :: iend, jend, kend
+    integer :: i, j, k
+
+    !! X-gravity
+    if ((nclx1.eq.0).and.(nclxn.eq.0)) then
+       istart = 1
+       iend = xsize(1)
+    else
+       istart = 2
+       iend = xsize(1) - 1
+    endif
+    if ((xstart(2).eq.1).and.(ncly1.eq.2)) then
+       jstart = 2
+    else
+       jstart = 1
+    endif
+    if ((xend(2).eq.ny).and.(nclyn.eq.2)) then
+       jend = xsize(2) - 1
+    else
+       jend = xsize(2)
+    endif
+    if ((xstart(3).eq.1).and.(nclz1.eq.2)) then
+       kstart = 2
+    else
+       kstart = 1
+    endif
+    if ((xend(3).eq.nz).and.(nclzn.eq.2)) then
+       kend = xsize(3) - 1
+    else
+       kend = xsize(3)
+    endif
+
+    do k = kstart, kend
+       do j = jstart, jend
+          do i = istart, iend
+             dux1(i, j, k, 1) = dux1(i, j, k, 1) + peculiar_density1(i, j, k) * richardson * gravx
+          enddo
+       enddo
+    enddo
+
+    !! Y-gravity
+    if (nclx1.eq.2) then
+       istart = 2
+    else
+       istart = 1
+    endif
+    if (nclxn.eq.2) then
+       iend = xsize(1) - 1
+    else
+       iend = xsize(2)
+    endif
+    if ((xstart(2).eq.1).and.(ncly1.eq.0)) then
+       jstart = 1
+    else
+       jstart = 2
+    endif
+    if ((xend(2).eq.ny).and.(nclyn.eq.0)) then
+       jend = xsize(2)
+    else
+       jend = xsize(2) - 1
+    endif
+    if ((xstart(3).eq.1).and.(nclz1.eq.2)) then
+       kstart = 2
+    else
+       kstart = 1
+    endif
+    if ((xend(3).eq.nz).and.(nclzn.eq.2)) then
+       kend = xsize(3) - 1
+    else
+       kend = xsize(3)
+    endif
+    do k = kstart, kend
+       do j = jstart, jend
+          do i = istart, iend
+             duy1(i, j, k, 1) = duy1(i, j, k, 1) + peculiar_density1(i, j, k) * richardson * gravy
+          enddo
+       enddo
+    enddo
+
+    !! Z-gravity
+    if (nclx1.eq.2) then
+       istart = 2
+    else
+       istart = 1
+    endif
+    if (nclxn.eq.2) then
+       iend = xsize(1) - 1
+    else
+       iend = xsize(2)
+    endif
+    if ((xstart(2).eq.1).and.(ncly1.eq.2)) then
+       jstart = 2
+    else
+       jstart = 1
+    endif
+    if ((xend(2).eq.ny).and.(nclyn.eq.2)) then
+       jend = xsize(2) - 1
+    else
+       jend = xsize(2)
+    endif
+    if ((xstart(3).eq.1).and.(nclz1.eq.0)) then
+       kstart = 1
+    else
+       kstart = 2
+    endif
+    if ((xend(3).eq.nz).and.(nclzn.eq.0)) then
+       kend = xsize(3)
+    else
+       kend = xsize(3) - 1
+    endif
+    do k = kstart, kend
+       do j = jstart, jend
+          do i = istart, iend
+             duz1(i, j, k, 1) = duz1(i, j, k, 1) + peculiar_density1(i, j, k) * richardson * gravz
+          enddo
+       enddo
+    enddo
+
+
+  end subroutine momentum_gravity
+
+  subroutine scalar_transport_eq(dphi1, rho1, ux1, phi1, schmidt)
 
     USE param
     USE variables
@@ -331,7 +475,7 @@ CONTAINS
     implicit none
 
     !! INPUTS
-    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
+    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: phi1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
     REAL(mytype), INTENT(IN) :: schmidt
@@ -391,7 +535,7 @@ CONTAINS
   endsubroutine scalar_transport_eq
 
   !************************************************************
-  subroutine scalar(dphi1, rho1, ux1, uy1, uz1, phi1)
+  subroutine scalar(dphi1, rho1, ux1, phi1)
 
     USE param
     USE variables
@@ -400,7 +544,7 @@ CONTAINS
     implicit none
 
     !! INPUTS
-    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
+    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
 
@@ -408,7 +552,7 @@ CONTAINS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime,numscalar) :: dphi1
 
     !! LOCALS
-    integer :: i, j, k, is
+    integer :: is
 
     !!=====================================================================
     !! XXX It is assumed that ux,uy,uz are already updated in all pencils!
@@ -418,7 +562,7 @@ CONTAINS
        if (is.ne.primary_species) then
           !! For mass fractions enforce primary species Y_p = 1 - sum_s Y_s
           !! So don't solve a transport equation
-          call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, uy1, uz1, phi1(:,:,:,is), sc(is))
+          call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is))
        endif
 
     end do !loop numscalar
@@ -435,7 +579,7 @@ CONTAINS
 
   end subroutine scalar
 
-  subroutine temperature_rhs_eq(drho1, rho1, ux1, uy1, uz1, phi1)
+  subroutine temperature_rhs_eq(drho1, rho1, ux1, phi1)
 
     USE param
     USE variables
@@ -446,15 +590,12 @@ CONTAINS
     implicit none
 
     !! INPUTS
-    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
+    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
 
     !! OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: drho1
-
-    !! LOCALS
-    integer :: is
 
     !! Get temperature
     CALL calc_temp_eos(te1, rho1(:,:,:,1), phi1, tb1, xsize(1), xsize(2), xsize(3))
@@ -462,12 +603,12 @@ CONTAINS
     !!=====================================================================
     !! XXX It is assumed that ux,uy,uz are already updated in all pencils!
     !!=====================================================================
-    call scalar_transport_eq(drho1, rho1, ux1, uy1, uz1, te1, prandtl)
+    call scalar_transport_eq(drho1, rho1, ux1, te1, prandtl)
 
   end subroutine temperature_rhs_eq
 
 
-  SUBROUTINE continuity_rhs_eq(drho1, rho1, ux1, uy1, uz1, divu3)
+  SUBROUTINE continuity_rhs_eq(drho1, rho1, ux1, divu3)
 
     USE decomp_2d, ONLY : mytype, xsize, ysize, zsize
     USE decomp_2d, ONLY : transpose_z_to_y, transpose_y_to_x
@@ -480,7 +621,7 @@ CONTAINS
 
     IMPLICIT NONE
 
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
+    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
     REAL(mytype), INTENT(IN), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
 
