@@ -671,9 +671,6 @@ contains
 
   subroutine mpiio_write_real_coarse(ipencil,var,filename,icoarse)
 
-    USE param
-    USE variables
-
     implicit none
 
     integer, intent(IN) :: ipencil !(x-pencil=1; y-pencil=2; z-pencil=3)
@@ -767,22 +764,19 @@ contains
     return
   end subroutine mpiio_write_real_coarse
 
-  subroutine mpiio_write_real_probe(ipencil,var,filename)
-
-    USE param
-    USE variables
+  subroutine mpiio_write_real_probe(ipencil,var,filename,nlength)
 
     implicit none
 
-    integer, intent(IN) :: ipencil !(x-pencil=1; y-pencil=2; z-pencil=3)
-    real(mytype), dimension(:,:,:,:), intent(IN) :: var
-
-    character(len=*) :: filename
+    !! Inputs
+    integer, intent(in) :: ipencil !(x-pencil=1; y-pencil=2; z-pencil=3)
+    real(mytype), dimension(:,:,:,:), intent(in) :: var
+    character(len=*), intent(in) :: filename
+    integer, intent(in) :: nlength
 
     integer (kind=MPI_OFFSET_KIND) :: filesize, disp
     integer, dimension(4) :: sizes, subsizes, starts
-    integer :: i,j,k, ierror, newtype, fh
-
+    integer :: ierror, newtype, fh
 
     sizes(1) = xszP(1)
     sizes(2) = yszP(2)
