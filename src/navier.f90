@@ -16,8 +16,6 @@ subroutine  int_time(var1,dvar1)
   USE decomp_2d
   implicit none
 
-  integer :: ijk,nxyz
-
   !! INPUTS
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: var1
 
@@ -49,11 +47,11 @@ subroutine  int_time(var1,dvar1)
         var1(:,:,:)=dt*dvar1(:,:,:,1)+var1(:,:,:)
      elseif(itime.eq.2.and.irestart.eq.0) then
       	! Do second time step with AB2
-      	var1(:,:,:)=onepfive*dt*dvar1(:,:,:,1)-half*dt*dvar1(:,:,:,2)+var1(:,:,:)
+        var1(:,:,:)=onepfive*dt*dvar1(:,:,:,1)-half*dt*dvar1(:,:,:,2)+var1(:,:,:)
         dvar1(:,:,:,3)=dvar1(:,:,:,2)
      else
       	! Finally using AB3
-      	var1(:,:,:)=adt(itr)*dvar1(:,:,:,1)+bdt(itr)*dvar1(:,:,:,2)+cdt(itr)*dvar1(:,:,:,3)+var1(:,:,:)
+        var1(:,:,:)=adt(itr)*dvar1(:,:,:,1)+bdt(itr)*dvar1(:,:,:,2)+cdt(itr)*dvar1(:,:,:,3)+var1(:,:,:)
         dvar1(:,:,:,3)=dvar1(:,:,:,2)
      endif
      dvar1(:,:,:,2)=dvar1(:,:,:,1)
@@ -257,7 +255,6 @@ subroutine int_time_temperature(rho1, drho1, dphi1, phi1)
   implicit none
 
   integer :: it, i, j, k
-  real(mytype) :: rhomin, rhomax
 
   !! INPUTS
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
@@ -266,9 +263,6 @@ subroutine int_time_temperature(rho1, drho1, dphi1, phi1)
 
   !! OUTPUTS
   real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: drho1
-
-  !! LOCALS
-  INTEGER :: is
 
   !! First, update old density / store old transients depending on scheme
   if (itimescheme.lt.5) then
@@ -293,32 +287,27 @@ subroutine int_time_temperature(rho1, drho1, dphi1, phi1)
      endif
   endif
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! XXX We are integrating the temperature equation - get temperature
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   call calc_temp_eos(tc1, rho1(:,:,:,1), phi1, tb1, xsize(1), xsize(2), xsize(3))
 
-  !! Now we can update current density
+  !! Now we can update current temperature
   call int_time(tc1, drho1)
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !! XXX We are integrating the temperature equation - get back to rho
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call calc_rho_eos(rho1(:,:,:,1), tc1, phi1, tb1, xsize(1), xsize(2), xsize(3))
-
-  !! Enforce boundedness on density
-  if (ilmn_bound) then
-     rhomin = min(dens1, dens2)
-     rhomax = max(dens1, dens2)
-     do k = 1, xsize(3)
-        do j = 1, xsize(2)
-           do i = 1, xsize(1)
-              rho1(i, j, k, 1) = max(rho1(i, j, k, 1), rhomin)
-              rho1(i, j, k, 1) = min(rho1(i, j, k, 1), rhomax)
-           enddo
+  !! Temperature >= 0
+  do k = 1, xsize(3)
+     do j = 1, xsize(2)
+        do i = 1, xsize(1)
+           tc1(i,j,k) = max(tc1(i,j,k), zero)
         enddo
      enddo
-  endif
+  enddo
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !! XXX We are integrating the temperature equation - get back to rho
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  call calc_rho_eos(rho1(:,:,:,1), tc1, phi1, tb1, xsize(1), xsize(2), xsize(3))
 
 endsubroutine int_time_temperature
 
@@ -337,12 +326,11 @@ SUBROUTINE lmn_t_to_rho_trans(drho1, dtemp1, rho1, dphi1, phi1)
 
   USE decomp_2d
   USE param, ONLY : zero
-  USE param, ONLY : pressure0
   USE param, ONLY : imultispecies, massfrac, mol_weight
   USE param, ONLY : ntime
   USE var, ONLY : numscalar
   USE var, ONLY : ta1, tb1
-  
+
   IMPLICIT NONE
 
   !! INPUTS
@@ -355,30 +343,30 @@ SUBROUTINE lmn_t_to_rho_trans(drho1, dtemp1, rho1, dphi1, phi1)
 
   !! LOCALS
   INTEGER :: is
-  
+
   drho1(:,:,:) = zero
-  
+
   IF (imultispecies) THEN
      DO is = 1, numscalar
         IF (massfrac(is)) THEN
            drho1(:,:,:) = drho1(:,:,:) - dphi1(:,:,:,1,is) / mol_weight(is)
         ENDIF
      ENDDO
-     
+
      ta1(:,:,:) = zero !! Mean molecular weight
      DO is = 1, numscalar
         IF (massfrac(is)) THEN
            ta1(:,:,:) = ta1(:,:,:) + phi1(:,:,:,is) / mol_weight(is)
         ENDIF
      ENDDO
-     drho1(:,:,:) = ta1(:,:,:) * drho1(:,:,:)
+     drho1(:,:,:) = ta1(:,:,:) * drho1(:,:,:) !! XXX ta1 is the inverse molecular weight
   ENDIF
 
   CALL calc_temp_eos(ta1, rho1, phi1, tb1, xsize(1), xsize(2), xsize(3))
   drho1(:,:,:) = drho1(:,:,:) - dtemp1(:,:,:) / ta1(:,:,:)
-  
+
   drho1(:,:,:) = rho1(:,:,:) * drho1(:,:,:)
-  
+
 ENDSUBROUTINE lmn_t_to_rho_trans
 
 !********************************************************************
@@ -397,7 +385,6 @@ subroutine corpg (ux,uy,uz,px,py,pz)
 
   implicit none
 
-  integer :: ijk,nxyz
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: px,py,pz
 
@@ -426,7 +413,7 @@ subroutine divergence (pp3,rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
 
   implicit none
 
-!  TYPE(DECOMP_INFO) :: ph1,ph3,ph4
+  !  TYPE(DECOMP_INFO) :: ph1,ph3,ph4
 
   !X PENCILS NX NY NZ  -->NXM NY NZ
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: ux1,uy1,uz1,ep1
@@ -436,7 +423,7 @@ subroutine divergence (pp3,rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
   real(mytype),dimension(zsize(1),zsize(2),zsize(3)),intent(in) :: divu3
   real(mytype),dimension(ph1%zst(1):ph1%zen(1),ph1%zst(2):ph1%zen(2),nzmsize) :: pp3
 
-  integer :: ijk,nvect1,nvect2,nvect3,i,j,k,nlock
+  integer :: nvect3,i,j,k,nlock
   integer :: code
   real(mytype) :: tmax,tmoy,tmax1,tmoy1
 
@@ -499,18 +486,18 @@ subroutine divergence (pp3,rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
   pp3(:,:,:) = pp3(:,:,:) + po3(:,:,:)
 
   if (nlock==2) then
-    pp3(:,:,:)=pp3(:,:,:)-pp3(ph1%zst(1),ph1%zst(2),nzmsize)
+     pp3(:,:,:)=pp3(:,:,:)-pp3(ph1%zst(1),ph1%zst(2),nzmsize)
   endif
 
   tmax=-1609._mytype
   tmoy=0._mytype
   do k=1,nzmsize
-    do j=ph1%zst(2),ph1%zen(2)
-      do i=ph1%zst(1),ph1%zen(1)
-        if (pp3(i,j,k).gt.tmax) tmax=pp3(i,j,k)
-        tmoy=tmoy+abs(pp3(i,j,k))
-      enddo
-    enddo
+     do j=ph1%zst(2),ph1%zen(2)
+        do i=ph1%zst(1),ph1%zen(1)
+           if (pp3(i,j,k).gt.tmax) tmax=pp3(i,j,k)
+           tmoy=tmoy+abs(pp3(i,j,k))
+        enddo
+     enddo
   enddo
   tmoy=tmoy/nvect3
 
@@ -518,11 +505,11 @@ subroutine divergence (pp3,rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
   call MPI_REDUCE(tmoy,tmoy1,1,real_type,MPI_SUM,0,MPI_COMM_WORLD,code)
 
   if ((nrank==0).and.(nlock.gt.0)) then
-    if (nlock==2) then
-      print *,'DIV U  max mean=',real(tmax1,4),real(tmoy1/real(nproc),4)
-    else
-      print *,'DIV U* max mean=',real(tmax1,4),real(tmoy1/real(nproc),4)
-    endif
+     if (nlock==2) then
+        print *,'DIV U  max mean=',real(tmax1,4),real(tmoy1/real(nproc),4)
+     else
+        print *,'DIV U* max mean=',real(tmax1,4),real(tmoy1/real(nproc),4)
+     endif
   endif
 
   return
@@ -549,16 +536,14 @@ subroutine gradp(px1,py1,pz1,pp3)
   USE variables
   USE MPI
   USE var, only: pp1,pgy1,pgz1,di1,pp2,ppi2,pgy2,pgz2,pgzi2,dip2,&
-          pgz3,ppi3,dip3,nxmsize,nymsize,nzmsize
+       pgz3,ppi3,dip3,nxmsize,nymsize,nzmsize
 #ifdef FORCES
   USE forces, only : ppi1
 #endif
 
   implicit none
 
-  integer :: i,j,k,code
-  integer, dimension(2) :: dims, dummy_coords
-  logical, dimension(2) :: dummy_periods
+  integer :: i,j,k
 
   real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),nzmsize) :: pp3
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: px1,py1,pz1
@@ -595,67 +580,67 @@ subroutine gradp(px1,py1,pz1,pp3)
 
 #ifdef FORCES
   call interxpv(ppi1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
-  nxmsize,xsize(1),xsize(2),xsize(3),1)
+       nxmsize,xsize(1),xsize(2),xsize(3),1)
 #endif
 
   !we are in X pencils:
   if (nclx1.eq.2) then
-    do k=1,xsize(3)
-      do j=1,xsize(2)
-        dpdyx1(j,k)=py1(1,j,k)/gdt(itr)
-        dpdzx1(j,k)=pz1(1,j,k)/gdt(itr)
-      enddo
-    enddo
+     do k=1,xsize(3)
+        do j=1,xsize(2)
+           dpdyx1(j,k)=py1(1,j,k)/gdt(itr)
+           dpdzx1(j,k)=pz1(1,j,k)/gdt(itr)
+        enddo
+     enddo
   endif
   if (nclxn.eq.2) then
-    do k=1,xsize(3)
-      do j=1,xsize(2)
-        dpdyxn(j,k)=py1(nx,j,k)/gdt(itr)
-        dpdzxn(j,k)=pz1(nx,j,k)/gdt(itr)
-      enddo
-    enddo
+     do k=1,xsize(3)
+        do j=1,xsize(2)
+           dpdyxn(j,k)=py1(nx,j,k)/gdt(itr)
+           dpdzxn(j,k)=pz1(nx,j,k)/gdt(itr)
+        enddo
+     enddo
   endif
 
   if (ncly1.eq.2) then
-    if (xsize(2)==1) then
-      do k=1,xsize(3)
-        do i=1,xsize(1)
-          dpdxy1(i,k)=px1(i,1,k)/gdt(itr)
-          dpdzy1(i,k)=pz1(i,1,k)/gdt(itr)
+     if (xsize(2)==1) then
+        do k=1,xsize(3)
+           do i=1,xsize(1)
+              dpdxy1(i,k)=px1(i,1,k)/gdt(itr)
+              dpdzy1(i,k)=pz1(i,1,k)/gdt(itr)
+           enddo
         enddo
-      enddo
-    endif
+     endif
   endif
   if (nclyn.eq.2) then
-    if (xsize(2)==ny) then
-      do k=1,xsize(3)
-        do i=1,xsize(1)
-          dpdxyn(i,k)=px1(i,ny,k)/gdt(itr)
-          dpdzyn(i,k)=pz1(i,ny,k)/gdt(itr)
+     if (xsize(2)==ny) then
+        do k=1,xsize(3)
+           do i=1,xsize(1)
+              dpdxyn(i,k)=px1(i,ny,k)/gdt(itr)
+              dpdzyn(i,k)=pz1(i,ny,k)/gdt(itr)
+           enddo
         enddo
-      enddo
-    endif
+     endif
   endif
 
   if (nclz1.eq.2) then
-    if (xstart(3)==1) then
-      do j=1,xsize(2)
-        do i=1,xsize(1)
-          dpdxz1(i,j)=py1(i,j,1)/gdt(itr)
-          dpdyz1(i,j)=pz1(i,j,1)/gdt(itr)
+     if (xstart(3)==1) then
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              dpdxz1(i,j)=py1(i,j,1)/gdt(itr)
+              dpdyz1(i,j)=pz1(i,j,1)/gdt(itr)
+           enddo
         enddo
-      enddo
-    endif
+     endif
   endif
   if (nclzn.eq.2) then
-    if (xend(3)==nz) then
-      do j=1,xsize(2)
-        do i=1,xsize(1)
-          dpdxzn(i,j)=py1(i,j,xsize(3))/gdt(itr)
-          dpdyzn(i,j)=pz1(i,j,xsize(3))/gdt(itr)
+     if (xend(3)==nz) then
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              dpdxzn(i,j)=py1(i,j,xsize(3))/gdt(itr)
+              dpdyzn(i,j)=pz1(i,j,xsize(3))/gdt(itr)
+           enddo
         enddo
-      enddo
-    endif
+     endif
   endif
 
   return
@@ -672,69 +657,18 @@ subroutine pre_correc(ux,uy,uz,ep)
   implicit none
 
   real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,ep
-  integer :: i,j,k,code,is
+  integer :: i,j,k,is
   real(mytype) :: ut,ut1,utt,ut11
 
-  !********NCLZ==2*************************************
-  if (nclz1==2) then
-     if (xstart(3)==1) then
-        do j=1,xsize(2)
-           do i=1,xsize(1)
-              dpdxz1(i,j)=dpdxz1(i,j)*gdt(itr)
-              dpdyz1(i,j)=dpdyz1(i,j)*gdt(itr)
-           enddo
-        enddo
-        do j=1,xsize(2)
-           do i=1,xsize(1)
-              ux(i,j,1)=bzx1(i,j)+dpdxz1(i,j)
-              uy(i,j,1)=bzy1(i,j)+dpdyz1(i,j)
-              uz(i,j,1)=bzz1(i,j)
-           enddo
-        enddo
-     endif
-  endif
+  integer :: code
+  integer, dimension(2) :: dims, dummy_coords
+  logical, dimension(2) :: dummy_periods
 
-  if (nclzn==2) then
-     if (xend(3)==nz) then
-        do j=1,xsize(2)
-           do i=1,xsize(1)
-              dpdxzn(i,j)=dpdxzn(i,j)*gdt(itr)
-              dpdyzn(i,j)=dpdyzn(i,j)*gdt(itr)
-           enddo
-        enddo
-        do j=1,xsize(2)
-           do i=1,xsize(1)
-              ux(i,j,xsize(3))=bzxn(i,j)+dpdxzn(i,j)
-              uy(i,j,xsize(3))=bzyn(i,j)+dpdyzn(i,j)
-              uz(i,j,xsize(3))=bzzn(i,j)
-           enddo
-        enddo
-     endif
-  endif
-  !********NCLZ==1************************************* !just to reforce free-slip condition
-  if (nclz1==1) then
-     if (xstart(3)==1) then
-        do j=1,xsize(2)
-           do i=1,xsize(1)
-              uz(i,j,1)=zero
-           enddo
-        enddo
-     endif
-  endif
-
-  if (nclzn==1) then
-     if (xend(3)==nz) then
-        do j=1,xsize(2)
-           do i=1,xsize(1)
-              uz(i,j,xsize(3))=zero
-           enddo
-        enddo
-     endif
-  endif
+  call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, code)
 
   !********NCLX==2*************************************
   !we are in X pencils:
-  if (nclx1==2.and.nclxn==2) then
+  if ((itype.eq.itype_channel).and.(nclx1==2.and.nclxn==2)) then
 
      !Computatation of the flow rate Inflow/Outflow
      ut1=zero
@@ -837,6 +771,16 @@ subroutine pre_correc(ux,uy,uz,ep)
               dpdzyn(i,k)=dpdzyn(i,k)*gdt(itr)
            enddo
         enddo
+     endif
+     if (dims(1)==1) then
+        do k=1,xsize(3)
+           do i=1,xsize(1)
+              ux(i,xsize(2),k)=byxn(i,k)+dpdxyn(i,k)
+              uy(i,xsize(2),k)=byyn(i,k)
+              uz(i,xsize(2),k)=byzn(i,k)+dpdzyn(i,k)
+           enddo
+        enddo
+     elseif (ny - (nym / dims(1)) == xstart(2)) then
         do k=1,xsize(3)
            do i=1,xsize(1)
               ux(i,xsize(2),k)=byxn(i,k)+dpdxyn(i,k)
@@ -863,6 +807,64 @@ subroutine pre_correc(ux,uy,uz,ep)
         do k=1,xsize(3)
            do i=1,xsize(1)
               uy(i,xsize(2),k)=zero
+           enddo
+        enddo
+     endif
+  endif
+
+
+  !********NCLZ==2*************************************
+  if (nclz1==2) then
+     if (xstart(3)==1) then
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              dpdxz1(i,j)=dpdxz1(i,j)*gdt(itr)
+              dpdyz1(i,j)=dpdyz1(i,j)*gdt(itr)
+           enddo
+        enddo
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              ux(i,j,1)=bzx1(i,j)+dpdxz1(i,j)
+              uy(i,j,1)=bzy1(i,j)+dpdyz1(i,j)
+              uz(i,j,1)=bzz1(i,j)
+           enddo
+        enddo
+     endif
+  endif
+
+  if (nclzn==2) then
+     if (xend(3)==nz) then
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              dpdxzn(i,j)=dpdxzn(i,j)*gdt(itr)
+              dpdyzn(i,j)=dpdyzn(i,j)*gdt(itr)
+           enddo
+        enddo
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              ux(i,j,xsize(3))=bzxn(i,j)+dpdxzn(i,j)
+              uy(i,j,xsize(3))=bzyn(i,j)+dpdyzn(i,j)
+              uz(i,j,xsize(3))=bzzn(i,j)
+           enddo
+        enddo
+     endif
+  endif
+  !********NCLZ==1************************************* !just to reforce free-slip condition
+  if (nclz1==1) then
+     if (xstart(3)==1) then
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              uz(i,j,1)=zero
+           enddo
+        enddo
+     endif
+  endif
+
+  if (nclzn==1) then
+     if (xend(3)==nz) then
+        do j=1,xsize(2)
+           do i=1,xsize(1)
+              uz(i,j,xsize(3))=zero
            enddo
         enddo
      endif
@@ -916,7 +918,7 @@ SUBROUTINE calc_divu_constraint(divu3, rho1, phi1)
 
   IMPLICIT NONE
 
-  INTEGER :: i, j, k, is
+  INTEGER :: is
 
   REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
   REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
@@ -941,7 +943,7 @@ SUBROUTINE calc_divu_constraint(divu3, rho1, phi1)
            ENDIF
         ENDDO
         td1(:,:,:) = one / td1(:,:,:)
-        
+
         DO is = 1, numscalar
            IF (massfrac(is)) THEN
               CALL derxx (tc1, phi1(:,:,:,is), di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
@@ -1056,10 +1058,10 @@ SUBROUTINE extrapol_drhodt(drhodt1_next, rho1, drho1)
         drhodt1_next(:,:,:) = three * rho1(:,:,:,1) - four * rho1(:,:,:,2) + rho1(:,:,:,3)
         drhodt1_next(:,:,:) = half * drhodt1_next(:,:,:) / dt
      ENDIF
-  ! ELSEIF (itimescheme.EQ.3) THEN
-  !    !! AB3
-  ! ELSEIF (itimescheme.EQ.4) THEN
-  !    !! AB4
+     ! ELSEIF (itimescheme.EQ.3) THEN
+     !    !! AB3
+     ! ELSEIF (itimescheme.EQ.4) THEN
+     !    !! AB4
   ELSEIF (itimescheme.EQ.5) THEN
      !! RK3
      IF (itime.GT.1) THEN
@@ -1088,7 +1090,7 @@ ENDSUBROUTINE extrapol_drhodt
 !!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SUBROUTINE test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
-  
+
   USE MPI
   USE decomp_2d, ONLY: mytype, ph1, real_type, nrank
   USE var, ONLY : nzmsize
@@ -1109,12 +1111,12 @@ SUBROUTINE test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
   !! LOCALS
   INTEGER :: ierr
   REAL(mytype) :: errloc, errglob, divup3norm
-     
+
   IF (poissiter.EQ.0) THEN
      errloc = SUM(dv3**2)
      CALL MPI_ALLREDUCE(errloc,divup3norm,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
      divup3norm = SQRT(divup3norm / nxm / nym / nzm)
-  
+
      IF (nrank.EQ.0) THEN
         PRINT *, "Solving variable-coefficient Poisson equation:"
         PRINT *, "+ RMS div(u*) - div(u): ", divup3norm
@@ -1148,7 +1150,7 @@ SUBROUTINE test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
         pp3(:,:,:,2) = pp3(:,:,:,1)
      ENDIF
   ENDIF
-  
+
 ENDSUBROUTINE test_varcoeff
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1161,7 +1163,7 @@ ENDSUBROUTINE test_varcoeff
 SUBROUTINE calc_varcoeff_rhs(pp3, rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, poissiter)
 
   USE MPI
-  
+
   USE decomp_2d
 
   USE param, ONLY : nrhotime, ntime
@@ -1169,7 +1171,7 @@ SUBROUTINE calc_varcoeff_rhs(pp3, rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, p
 
   USE var, ONLY : ta1, tb1, tc1
   USE var, ONLY : nzmsize
-  
+
   IMPLICIT NONE
 
   !! INPUTS

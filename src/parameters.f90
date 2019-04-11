@@ -57,15 +57,19 @@ subroutine parameter(input_i3d)
   NAMELIST /BasicParam/ p_row, p_col, nx, ny, nz, istret, beta, xlx, yly, zlz, &
        itype, iin, re, u1, u2, init_noise, inflow_noise, &
        dt, ifirst, ilast, &
-       iturbmod, numscalar, iibm, ilmn, &
+       ilesmod, numscalar, iibm, ilmn, &
+       ilesmod, iscalar, iibm, &
        nclx1, nclxn, ncly1, nclyn, nclz1, nclzn, &
-       ivisu, ipost
+       ivisu, ipost, &
+       gravx, gravy, gravz
   NAMELIST /NumOptions/ ifirstder, isecondder, itimescheme, rxxnu, cnu, fpi2, ipinter
   NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu
   NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat
-  NAMELIST /ScalarParam/ sc, nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn
-  NAMELIST /TurbulenceModel/ iles, smagcst, walecst, iwall
-  NAMELIST /TurbulenceWallModel/ smagwalldamp
+  NAMELIST /ScalarParam/ sc, ri, &
+       nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn
+  NAMELIST /LESModel/ jles, smagcst, walecst, iwall
+  NAMELIST /WallModel/ smagwalldamp
+
   NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf
   NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, massfrac, mol_weight, imultispecies, primary_species
 #ifdef DEBG
@@ -77,7 +81,7 @@ subroutine parameter(input_i3d)
      print *,'======================Xcompact3D==========================='
      print *,'===Copyright (c) 2018 Eric Lamballais and Sylvain Laizet==='
      print *,'===Modified by Felipe Schuch and Ricardo Frantz============'
-     print *,'===Modified by Paul Bartholomew, Yorgos Deskos and========='
+     print *,'===Modified by Paul Bartholomew, Georgios Deskos and======='
      print *,'===Sylvain Laizet -- 2018- ================================'
      print *,'==========================================================='
 #if defined(VERSION)
@@ -140,13 +144,15 @@ subroutine parameter(input_i3d)
      nclyS1 = ncly1; nclySn = nclyn
      nclzS1 = nclz1; nclzSn = nclzn
      
-     allocate(sc(numscalar))
+     allocate(sc(numscalar), ri(numscalar))
+     ri(:) = zero
      
      read(10, nml=ScalarParam)
   endif
   
   ! !! These are the 'optional'/model parameters
-  ! read(10, nml=TurbulenceModel)
+  ! read(10, nml=ScalarParam)
+  if(ilesmod.ne.0) read(10, nml=LESModel)
   ! read(10, nml=TurbulenceWallModel)
   
   close(10)
@@ -202,6 +208,8 @@ subroutine parameter(input_i3d)
         print *,'Debug schemes'
      elseif (itype.eq.itype_mixlayer) then
         print *,'Mixing layer'
+     elseif (itype.eq.itype_jet) then
+        print *,'Jet'
      else
         print *,'Unknown itype: ', itype
         stop
@@ -226,6 +234,7 @@ subroutine parameter(input_i3d)
      write(*,"('                      (nclz1 ,nclzn )=(',I1,',',I1,')')") nclz1,nclzn
      write(*,"(' High and low speed : u1=',F6.2,' and u2=',F6.2)") u1,u2
      write(*,"(' Reynolds number Re : ',F15.8)") re
+     write(*,"(' Gravity vector     : (gx, gy, gz)=(',F15.8,',',F15.8,',',F15.8,')')") gravx, gravy, gravz
      if (ilmn) then
         print *, "LMN                : Enabled"
         if (ivarcoeff) then
@@ -243,7 +252,7 @@ subroutine parameter(input_i3d)
      endif
      write(*,"(' Time step dt       : ',F15.8)") dt
      write (*,"(' Spatial scheme     : ',F15.8)") fpi2
-     if (iturbmod.ne.0) then
+     if (ilesmod.ne.0) then
         print *,'                   : DNS'
      else
         if (jLES.eq.1) then
@@ -287,6 +296,7 @@ subroutine parameter(input_i3d)
         do is=1, numscalar
            write (*,"(' Scalar             : #',I1)") is
            write (*,"(' Schmidt number     : ',F15.8)") sc(is)
+           write (*,"(' Richardson number  : ',F15.8)") ri(is)
         end do
      endif
      if (iibm.eq.0) then
@@ -340,7 +350,7 @@ subroutine parameter_defaults()
   USE variables
   USE decomp_2d
   USE complex_geometry
-  
+
   IMPLICIT NONE
 
   ro = 99999999._mytype
@@ -364,11 +374,16 @@ subroutine parameter_defaults()
   !! IBM stuff
   nraf = 0
   nobjmax = 0
-   
+
   itrip = 0
   wrotation = zero
   irotation = 0
   itest=1
+
+  !! Gravity field
+  gravx = zero
+  gravy = zero
+  gravz = zero
 
   !! LMN stuff
   ilmn = .FALSE.
@@ -387,7 +402,7 @@ subroutine parameter_defaults()
   !! IO
   ivisu = 1
   ipost = 0
-  
+
   save_ux = 0
   save_uy = 0
   save_uz = 0
