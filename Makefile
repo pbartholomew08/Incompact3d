@@ -59,17 +59,11 @@ FC = mpinagfor
 FFLAGS = -fpp
 endif
 
-
-MODDIR = ./mod
-DECOMPDIR = ./decomp2d
 SRCDIR = ./src
 
 ### List of files for the main code
-SRCDECOMP = $(DECOMPDIR)/decomp_2d.f90 $(DECOMPDIR)/glassman.f90 $(DECOMPDIR)/fft_$(FFT).f90 $(DECOMPDIR)/module_param.f90 $(DECOMPDIR)/io.f90
-OBJDECOMP = $(SRCDECOMP:%.f90=%.o)
-SRC = $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/*.f90
 OBJ = $(SRC:%.f90=%.o)
-SRC = $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/BC-User.f90 $(SRCDIR)/BC-TGV.f90 $(SRCDIR)/BC-Channel-flow.f90 $(SRCDIR)/BC-Periodic-hill.f90 $(SRCDIR)/BC-Cylinder.f90 $(SRCDIR)/BC-Mixing-layer.f90 $(SRCDIR)/BC-Jet.f90 $(SRCDIR)/BC-dbg-schemes.f90 $(SRCDIR)/case.f90 $(SRCDIR)/transeq.f90 $(SRCDIR)/forces.f90 $(SRCDIR)/navier.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/filters.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/tools.f90 $(SRCDIR)/visu.f90 $(SRCDIR)/paraview.f90 $(SRCDIR)/genepsi3d.f90 $(SRCDIR)/les_models.f90 $(SRCDIR)/incompact3d.f90
+SRC = $(SRCDIR)/module_param.f90 $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/BC-User.f90 $(SRCDIR)/BC-TGV.f90 $(SRCDIR)/BC-Channel-flow.f90 $(SRCDIR)/BC-Periodic-hill.f90 $(SRCDIR)/BC-Cylinder.f90 $(SRCDIR)/BC-Mixing-layer.f90 $(SRCDIR)/BC-Jet.f90 $(SRCDIR)/BC-dbg-schemes.f90 $(SRCDIR)/case.f90 $(SRCDIR)/transeq.f90 $(SRCDIR)/forces.f90 $(SRCDIR)/navier.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/filters.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/tools.f90 $(SRCDIR)/visu.f90 $(SRCDIR)/paraview.f90 $(SRCDIR)/genepsi3d.f90 $(SRCDIR)/les_models.f90 $(SRCDIR)/incompact3d.f90
 
 ### List of files for the post-processing code
 PSRC = decomp_2d.f90 module_param.f90 io.f90 variables.f90 schemes.f90 derive.f90 BC-$(FLOW_TYPE).f90 parameters.f90 tools.f90 visu.f90 paraview.f90 post.f90
@@ -119,26 +113,20 @@ else ifeq ($(FFT),generic)
 endif
 
 #######OPTIONS settings###########
-OPT = -I$(SRCDIR) -I$(DECOMPDIR) $(FFLAGS)
+OPT = $(FFLAGS)
+INC += -I$(SRCDIR) -I./decomp2d
 LINKOPT = $(FFLAGS)
 #-----------------------------------------------------------------------
 # Normally no need to change anything below
 
 all: incompact3d
 
-incompact3d : $(OBJDECOMP) $(OBJ)
-	$(FC) -o $@ $(LINKOPT) $(OBJDECOMP) $(OBJ) $(LIBFFT)
-
-$(OBJDECOMP):$(DECOMPDIR)%.o : $(DECOMPDIR)%.f90
-	$(FC) $(FFLAGS) $(OPT) $(DEFS) $(DEFS2) $(INC) -c $<
-	mv $(@F) ${DECOMPDIR}
-	#mv *.mod ${DECOMPDIR}
-
+incompact3d : $(OBJ)
+	$(FC) $(FFLAGS) $(INC) $^ $(LIBFFT) -L./decomp2d -ldecomp2d -o $@
 
 $(OBJ):$(SRCDIR)%.o : $(SRCDIR)%.f90
 	$(FC) $(FFLAGS) $(OPT) $(DEFS) $(DEFS2) $(INC) -c $<
 	mv $(@F) ${SRCDIR}
-	#mv *.mod ${SRCDIR}
 
 ## This %.o : %.f90 doesn't appear to be called...
 %.o : %.f90
@@ -152,7 +140,6 @@ post:
 .PHONY: clean
 
 clean:
-	rm -f $(DECOMPDIR)/*.o $(DECOMPDIR)/*.mod
 	rm -f $(SRCDIR)/*.o $(SRCDIR)/*.mod
 	rm -f *.o *.mod incompact3d post
 
