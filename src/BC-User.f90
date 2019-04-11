@@ -14,9 +14,6 @@ module user_sim
 
   IMPLICIT NONE
 
-  real(mytype), save, allocatable, dimension(:,:,:) :: vol1,volSimps1
-  integer :: FS
-  character(len=100) :: fileformat
   character(len=1),parameter :: NL=char(10) !new line character
 
   PRIVATE ! All functions/subroutines private by default
@@ -41,12 +38,8 @@ contains
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: drho1
 
-    real(mytype) :: y,r,um,r3,x,z,h,ct
-    real(mytype) :: cx0,cy0,cz0,hg,lg
-    integer :: k,j,i,ijk,fh,ierror,is,code
-    integer (kind=MPI_OFFSET_KIND) :: disp
-    integer, dimension (:), allocatable :: seed
-    integer ::  isize
+    real(mytype) :: x
+    integer :: k,j,i,is
 
     if (iin.eq.0) then !empty domain
 
@@ -70,16 +63,26 @@ contains
 
                 rho1(i,j,k,1) = one
 
+                !! Set phi1 like level-set
+                !! XXX level-set is a DISTANCE function
                 if ((x.gt.(0.4_mytype*xlx)).and.(x.lt.(0.6_mytype*xlx))) then
-                   phi1(i, j, k, :) = one
+                   phi1(i, j, k, :) = one !min(abs(x - 0.4_mytype * xlx), abs(x - 0.6_mytype))
                 else
-                   phi1(i, j, k, :) = zero
-                endif
-                
-                ! ux1(i,j,k)=ux1(i,j,k)+bxx1(j,k)
-                ! uy1(i,j,k)=uy1(i,j,k)+bxy1(j,k)
-                ! uz1(i,j,k)=uz1(i,j,k)+bxz1(j,k)
+                   if (x.gt.half*xlx) then
+                      phi1(i, j, k, :) = -min(abs(x - 0.6_mytype * xlx), abs((xlx - x) + 0.4_mytype * xlx))
+                   else
+                      phi1(i, j, k, :) = -min(abs(x - 0.4_mytype * xlx), abs(x + (xlx - 0.6_mytype * xlx)))
+                   endif
 
+                   phi1(i, j, k, :) = -one
+                endif
+
+                ! x = abs(x - half * xlx)
+                ! phi1(i, j, k, :) = tanh((xlx / ten - x) / dx)
+
+                !!------------------------------------------------------------
+                !! XXX Do not touch this bit
+                !!------------------------------------------------------------
                 dux1(i,j,k,1)=ux1(i,j,k)
                 duy1(i,j,k,1)=uy1(i,j,k)
                 duz1(i,j,k,1)=uz1(i,j,k)
@@ -95,11 +98,15 @@ contains
                 do is = 2, nrhotime
                    rho1(i,j,k,is) = rho1(i,j,k,is - 1)
                 enddo
+                !!------------------------------------------------------------
              enddo
           enddo
        enddo
 
        if (iscalar==1) then
+          !! Reinitialise to smooth level-set
+          call reinit_ls(phi1(:,:,:,1))
+
           dphi1(:,:,:,1,:) = phi1(:,:,:,:)
           do is = 2,ntime
              dphi1(:,:,:,is,:) = dphi1(:,:,:,is - 1,:)

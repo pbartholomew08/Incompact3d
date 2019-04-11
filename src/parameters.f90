@@ -101,18 +101,31 @@ subroutine parameter(input_i3d)
   read(10, nml=NumOptions)
   read(10, nml=InOutParam)
   read(10, nml=Statistics)
+
+  if (numscalar.ne.0) then
+     iscalar = 1
+     
+     !! Set Scalar BCs same as fluid (may be overridden)
+     nclxS1 = nclx1; nclxSn = nclxn
+     nclyS1 = ncly1; nclySn = nclyn
+     nclzS1 = nclz1; nclzSn = nclzn
+     
+     allocate(sc(numscalar), ri(numscalar))
+
+     ri(:) = zero
+
+     !! LMN-related scalars (still needed by all)
+     allocate(massfrac(numscalar))
+     allocate(mol_weight(numscalar))
+     massfrac(:) = .FALSE.
+     mol_weight(:) = one
+  endif
   
   if (iibm.ne.0) then
      read(10, nml=ibmstuff)
   endif
   
   if (ilmn) then
-     if (numscalar.ne.0) then
-        allocate(massfrac(numscalar))
-        allocate(mol_weight(numscalar))
-        massfrac(:) = .FALSE.
-        mol_weight(:) = one
-     endif
      read(10, nml=LMN)
 
      do is = 1, numscalar
@@ -137,16 +150,6 @@ subroutine parameter(input_i3d)
   endif
   
   if (numscalar.ne.0) then
-     iscalar = 1
-     
-     !! Set Scalar BCs same as fluid (may be overridden)
-     nclxS1 = nclx1; nclxSn = nclxn
-     nclyS1 = ncly1; nclySn = nclyn
-     nclzS1 = nclz1; nclzSn = nclzn
-     
-     allocate(sc(numscalar), ri(numscalar))
-     ri(:) = zero
-     
      read(10, nml=ScalarParam)
   endif
   

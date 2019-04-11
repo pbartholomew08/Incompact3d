@@ -1225,3 +1225,120 @@ SUBROUTINE calc_mweight(mweight, phi, xlen, ylen, zlen)
   mweight(:,:,:) = one / mweight(:,:,:)
 
 ENDSUBROUTINE calc_mweight
+
+!!------------------------------------------------------------------------
+!!  SUBROUTINE: reinit_ls
+!!      AUTHOR: Paul Bartholomew
+!! DESCRIPTION: Reinitialise the level-set distance function by computing
+!!              the steady-state of
+!!                d(ls)/dtau = S(ls_0) (1 - |grad(ls)|)
+!!              where ls_0 is the initially computed level-set, tau is a
+!!              pseudo timestep and S is a smoothing function
+!!                S(ls_0) = ls_0 / sqrt({ls_0}^2 + (|grad(ls)|dx)^2)
+!!------------------------------------------------------------------------
+subroutine reinit_ls(levelset1, ux1, uy1, uz1)
+
+  use decomp_2d, only : mytype, xsize, ysize, zsize
+  use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
+  use param, only : zero, half, one, two, ten
+  use param, only : dt, dx, dy, dz
+  use variables, only : nx, ny, nz
+  use var, only : di1, di2, di3
+  use variables, only : derx, dery, derz
+  use variables, only : sz, ffzp, fszp, fwzp
+  use variables, only : sy, ffyp, fsyp, fwyp, ppy
+  use variables, only : sx, ffxp, fsxp, fwxp
+
+  use var, only : S1 => ta1
+  use var, only : mag_grad_ls1 => tb1, grad_ls1 => tc1
+  use var, only : levelset1_old => td1
+  use var, only : levelset2 => ta2, mag_grad_ls2 => tb2, grad_ls2 => tc2
+  use var, only : levelset3 => ta3, grad_ls3 =>tb3
+  
+  implicit none
+
+  !! Inputs
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: ux1, uy1, uz1
+
+  !! InOut
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(inout) :: levelset1
+
+  !! Local
+  integer :: i, j, k
+  
+  integer :: iter
+  logical :: converged
+
+  real(mytype) :: dtau
+  real(mytype) :: rms_delta, rms_delta_old
+  
+  real(mytype) :: eps
+
+  eps = epsilon(one)
+
+  !! Step to steady state
+  converged = .false.
+  iter = 0
+  dtau = dt
+  do while (.not.converged)
+     print *, "Level-set reinitialisation: ", iter
+     
+     !! Compute level-set gradient magnitude
+     call transpose_x_to_y(levelset1, levelset2)
+     call transpose_y_to_z(levelset2, levelset3)
+
+     CALL derz (grad_ls3, levelset3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+
+     grad_ls3(:,:,:) = grad_ls3(:,:,:)**2
+     call transpose_z_to_y(grad_ls3, mag_grad_ls2)
+     CALL dery (grad_ls2, levelset2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+     mag_grad_ls2(:,:,:) = mag_grad_ls2(:,:,:) + grad_ls2(:,:,:)**2
+
+     call transpose_y_to_x(mag_grad_ls2, mag_grad_ls1)
+     CALL derx (grad_ls1, levelset1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+     mag_grad_ls1(:,:,:) = sqrt(mag_grad_ls1(:,:,:) + grad_ls1(:,:,:)**2)
+
+     if (iter==0) then
+        !! Compute smoothing function
+        S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 &
+             + (mag_grad_ls1(:,:,:) * dx)**2 &
+             + eps)
+        do k = 1, xsize(3)
+           do j = 1, xsize(2)
+              do i = 2, xsize(1) - 1
+                 if ((levelset1(i, j, k) * levelset1(i - 1, j, k) > zero) &
+                      .and. (levelset1(i, j, k) * levelset1(i + 1, j, k) > zero)) then
+                    !! Mask this point: not on interface
+                    S1(i, j, k) = zero
+                 endif
+                 S1(1, j, k) = zero
+                 S1(xsize(1), j, k) = zero
+              enddo
+           enddo
+        enddo
+     endif
+
+     !! Calc pseudo timestep (CFL < 1)
+     dtau = 0.1 * dx / maxval(S1 * grad_ls1 / abs(grad_ls1))
+     print *, "dtau: ", dtau
+
+     !! Update level-set
+     levelset1_old(:,:,:) = levelset1(:,:,:)
+     levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
+        
+     !! Test convergence
+     rms_delta = sqrt(sum((levelset1(:,:,:) - levelset1_old(:,:,:))**2) / nx / ny / nz)
+     if (rms_delta < (ten * eps)) then
+        converged = .true.
+     else
+        print *, "RMS: ", rms_delta
+     endif
+
+     iter = iter + 1
+
+     if (iter==100) then
+        converged = .true.
+     endif
+  enddo
+
+end subroutine reinit_ls
