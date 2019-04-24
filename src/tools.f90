@@ -1244,14 +1244,21 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
   use param, only : dt, dx, dy, dz
   use variables, only : nx, ny, nz
   use var, only : di1, di2, di3
+
+  !! Derivatives
   use variables, only : derx, dery, derz
   use variables, only : sz, ffzp, fszp, fwzp
   use variables, only : sy, ffyp, fsyp, fwyp, ppy
   use variables, only : sx, ffxp, fsxp, fwxp
 
+  !! Filters
+  use var, only: filx
+  use variables, only : fisx, fiffx, fifsx, fifwx
+
   use var, only : S1 => ta1
   use var, only : mag_grad_ls1 => tb1, grad_ls1 => tc1
-  use var, only : levelset1_old => td1
+  use var, only : levelset1_old => td1, flevelset1 => te1
+  use var, only : wx => tf1
   use var, only : levelset2 => ta2, mag_grad_ls2 => tb2, grad_ls2 => tc2
   use var, only : levelset3 => ta3, grad_ls3 =>tb3
   
@@ -1303,28 +1310,33 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
         S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 &
              + (mag_grad_ls1(:,:,:) * dx)**2 &
              + eps)
-        do k = 1, xsize(3)
-           do j = 1, xsize(2)
-              do i = 2, xsize(1) - 1
-                 if ((levelset1(i, j, k) * levelset1(i - 1, j, k) > zero) &
-                      .and. (levelset1(i, j, k) * levelset1(i + 1, j, k) > zero)) then
-                    !! Mask this point: not on interface
-                    S1(i, j, k) = zero
-                 endif
-                 S1(1, j, k) = zero
-                 S1(xsize(1), j, k) = zero
-              enddo
-           enddo
-        enddo
+        ! do k = 1, xsize(3)
+        !    do j = 1, xsize(2)
+        !       do i = 2, xsize(1) - 1
+        !          if ((levelset1(i, j, k) * levelset1(i - 1, j, k) > zero) &
+        !               .and. (levelset1(i, j, k) * levelset1(i + 1, j, k) > zero)) then
+        !             !! Mask this point: not on interface
+        !             S1(i, j, k) = zero
+        !          endif
+        !          S1(1, j, k) = zero
+        !          S1(xsize(1), j, k) = zero
+        !       enddo
+        !    enddo
+        ! enddo
      endif
 
      !! Calc pseudo timestep (CFL < 1)
-     dtau = 0.1 * dx / maxval(S1 * grad_ls1 / abs(grad_ls1))
+     wx(:,:,:) = S1(:,:,:) * grad_ls1(:,:,:) / (mag_grad_ls1(:,:,:) + eps)
+     dtau = 0.1 * dx / maxval(wx)
      print *, "dtau: ", dtau
 
      !! Update level-set
      levelset1_old(:,:,:) = levelset1(:,:,:)
-     levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
+     levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * (S1(:,:,:) - wx(:,:,:) * grad_ls1(:,:,:))
+     
+     !! Filter level set
+     call filx (flevelset1, levelset1, di1, fisx, fiffx, fifsx, fifwx, xsize(1), xsize(2), xsize(3), 0)
+     levelset1(:,:,:) = flevelset1(:,:,:)
         
      !! Test convergence
      rms_delta = sqrt(sum((levelset1(:,:,:) - levelset1_old(:,:,:))**2) / nx / ny / nz)

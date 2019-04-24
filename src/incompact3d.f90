@@ -72,7 +72,7 @@ PROGRAM incompact3d
   call decomp_2d_poisson_init()
   call decomp_info_init(nxm,nym,nzm,phG)
 
-
+  call filter(0.49_mytype) !! XXX TEMPORARY FOR TEST XXX
   if (ilesmod.ne.0) then
      call filter(0.45_mytype)
      if (jles.le.3)  call init_explicit_les()
@@ -443,7 +443,10 @@ SUBROUTINE intt(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
   USE param, ONLY : ntime, nrhotime, ilmn, iscalar, ilmn_solve_temp
   USE param, ONLY : primary_species, massfrac
   USE variables, ONLY : numscalar
-  USE var, ONLY : ta1, tb1
+  USE var, ONLY : ta1, tb1, fphi1 => tc1
+
+  use var, only : di1, filx
+  use variables, only : fisx, fiffx, fifsx, fifwx
 
   IMPLICIT NONE
 
@@ -491,6 +494,9 @@ SUBROUTINE intt(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
            ENDIF
         ENDIF
      ENDDO
+     
+     call filx (fphi1, phi1(:,:,:,1), di1, fisx, fiffx, fifsx, fifwx, xsize(1), xsize(2), xsize(3), 0)
+     phi1(:,:,:,1) = fphi1(:,:,:)
 
      CALL reinit_ls(phi1(:,:,:,1), ux1, uy1, uz1)
 
