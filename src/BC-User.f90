@@ -66,15 +66,13 @@ contains
                 !! Set phi1 like level-set
                 !! XXX level-set is a DISTANCE function
                 if ((x.gt.(0.4_mytype*xlx)).and.(x.lt.(0.6_mytype*xlx))) then
-                   phi1(i, j, k, :) = one !min(abs(x - 0.4_mytype * xlx), abs(x - 0.6_mytype))
+                   phi1(i, j, k, :) = min(abs(x - 0.4_mytype * xlx), abs(x - 0.6_mytype))
                 else
                    if (x.gt.half*xlx) then
                       phi1(i, j, k, :) = -min(abs(x - 0.6_mytype * xlx), abs((xlx - x) + 0.4_mytype * xlx))
                    else
                       phi1(i, j, k, :) = -min(abs(x - 0.4_mytype * xlx), abs(x + (xlx - 0.6_mytype * xlx)))
                    endif
-
-                   phi1(i, j, k, :) = -one
                 endif
 
                 ! x = abs(x - half * xlx)
