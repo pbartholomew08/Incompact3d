@@ -103,7 +103,7 @@ contains
 
        if (iscalar==1) then
           !! Reinitialise to smooth level-set
-          call reinit_ls(phi1(:,:,:,1))
+          call reinit_ls(phi1(:,:,:,1), ux1, uy1, uz1)
 
           dphi1(:,:,:,1,:) = phi1(:,:,:,:)
           do is = 2,ntime

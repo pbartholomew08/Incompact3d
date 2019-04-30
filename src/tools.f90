@@ -1242,25 +1242,20 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
   use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
   use param, only : zero, half, one, two, ten
   use param, only : dt, dx, dy, dz
+  use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
   use variables, only : nx, ny, nz
-  use var, only : di1, di2, di3
 
   !! Derivatives
-  use variables, only : derx, dery, derz
-  use variables, only : sz, ffzp, fszp, fwzp
-  use variables, only : sy, ffyp, fsyp, fwyp, ppy
-  use variables, only : sx, ffxp, fsxp, fwxp
-
-  !! Filters
-  use var, only: filx
-  use variables, only : fisx, fiffx, fifsx, fifwx
+  use weno, only : weno5
 
   use var, only : S1 => ta1
   use var, only : mag_grad_ls1 => tb1, grad_ls1 => tc1
-  use var, only : levelset1_old => td1, flevelset1 => te1
+  use var, only : levelset1_old => td1
   use var, only : wx => tf1
   use var, only : levelset2 => ta2, mag_grad_ls2 => tb2, grad_ls2 => tc2
+  use var, only : uy2, uz2
   use var, only : levelset3 => ta3, grad_ls3 =>tb3
+  use var, only : uz3
   
   implicit none
 
@@ -1292,17 +1287,20 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
      
      !! Compute level-set gradient magnitude
      call transpose_x_to_y(levelset1, levelset2)
+     call transpose_x_to_y(uy1, uy2)
+     call transpose_x_to_y(uz1, uz2)
      call transpose_y_to_z(levelset2, levelset3)
+     call transpose_y_to_z(uz2, uz3)
 
-     CALL derz (grad_ls3, levelset3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+     call weno5 (grad_ls3, levelset3, uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
 
      grad_ls3(:,:,:) = grad_ls3(:,:,:)**2
      call transpose_z_to_y(grad_ls3, mag_grad_ls2)
-     CALL dery (grad_ls2, levelset2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+     call weno5 (grad_ls2, levelset2, uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
      mag_grad_ls2(:,:,:) = mag_grad_ls2(:,:,:) + grad_ls2(:,:,:)**2
 
      call transpose_y_to_x(mag_grad_ls2, mag_grad_ls1)
-     CALL derx (grad_ls1, levelset1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+     call weno5 (grad_ls1, levelset1, ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
      mag_grad_ls1(:,:,:) = sqrt(mag_grad_ls1(:,:,:) + grad_ls1(:,:,:)**2)
 
      if (iter==0) then
@@ -1310,19 +1308,6 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
         S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 &
              + (mag_grad_ls1(:,:,:) * dx)**2 &
              + eps)
-        ! do k = 1, xsize(3)
-        !    do j = 1, xsize(2)
-        !       do i = 2, xsize(1) - 1
-        !          if ((levelset1(i, j, k) * levelset1(i - 1, j, k) > zero) &
-        !               .and. (levelset1(i, j, k) * levelset1(i + 1, j, k) > zero)) then
-        !             !! Mask this point: not on interface
-        !             S1(i, j, k) = zero
-        !          endif
-        !          S1(1, j, k) = zero
-        !          S1(xsize(1), j, k) = zero
-        !       enddo
-        !    enddo
-        ! enddo
      endif
 
      !! Calc pseudo timestep (CFL < 1)
@@ -1333,10 +1318,6 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
      !! Update level-set
      levelset1_old(:,:,:) = levelset1(:,:,:)
      levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * (S1(:,:,:) - wx(:,:,:) * grad_ls1(:,:,:))
-     
-     !! Filter level set
-     call filx (flevelset1, levelset1, di1, fisx, fiffx, fifsx, fifwx, xsize(1), xsize(2), xsize(3), 0)
-     levelset1(:,:,:) = flevelset1(:,:,:)
         
      !! Test convergence
      rms_delta = sqrt(sum((levelset1(:,:,:) - levelset1_old(:,:,:))**2) / nx / ny / nz)

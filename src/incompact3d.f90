@@ -72,7 +72,6 @@ PROGRAM incompact3d
   call decomp_2d_poisson_init()
   call decomp_info_init(nxm,nym,nzm,phG)
 
-  call filter(0.49_mytype) !! XXX TEMPORARY FOR TEST XXX
   if (ilesmod.ne.0) then
      call filter(0.45_mytype)
      if (jles.le.3)  call init_explicit_les()
