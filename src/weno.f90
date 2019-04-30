@@ -113,7 +113,7 @@ contains
                 endif
              else
                 gradphi(i, j, k) = zero
-                continue
+                cycle
              endif
              
              im1 = i - 1 * istep
