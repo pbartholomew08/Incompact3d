@@ -1236,11 +1236,11 @@ ENDSUBROUTINE calc_mweight
 !!              pseudo timestep and S is a smoothing function
 !!                S(ls_0) = ls_0 / sqrt({ls_0}^2 + (|grad(ls)|dx)^2)
 !!------------------------------------------------------------------------
-subroutine reinit_ls(levelset1, ux1, uy1, uz1)
+subroutine reinit_ls(levelset1)
 
   use decomp_2d, only : mytype, xsize, ysize, zsize
   use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
-  use param, only : zero, half, one, two, ten
+  use param, only : zero, half, one, two, five, ten
   use param, only : dt, dx, dy, dz
   use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
   use variables, only : nx, ny, nz
@@ -1253,14 +1253,11 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
   use var, only : levelset1_old => td1
   use var, only : wx => tf1
   use var, only : levelset2 => ta2, mag_grad_ls2 => tb2, grad_ls2 => tc2
-  use var, only : uy2, uz2
+  use var, only : wy => td2
   use var, only : levelset3 => ta3, grad_ls3 =>tb3
-  use var, only : uz3
+  use var, only : wz => tc3
   
   implicit none
-
-  !! Inputs
-  real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: ux1, uy1, uz1
 
   !! InOut
   real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(inout) :: levelset1
@@ -1272,11 +1269,16 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
   logical :: converged
 
   real(mytype) :: dtau
-  real(mytype) :: rms_delta, rms_delta_old
+  real(mytype) :: delta_ls
+  real(mytype) :: deltax
+  real(mytype) :: ctr
+  real(mytype) :: alpha
   
   real(mytype) :: eps
 
-  eps = epsilon(one)
+  deltax = sqrt(dx**2 + dy**2 + dz**2)
+  eps = deltax !! SUSSMAN1994
+  alpha = five * deltax
 
   !! Step to steady state
   converged = .false.
@@ -1287,44 +1289,65 @@ subroutine reinit_ls(levelset1, ux1, uy1, uz1)
      
      !! Compute level-set gradient magnitude
      call transpose_x_to_y(levelset1, levelset2)
-     call transpose_x_to_y(uy1, uy2)
-     call transpose_x_to_y(uz1, uz2)
      call transpose_y_to_z(levelset2, levelset3)
-     call transpose_y_to_z(uz2, uz3)
 
-     call weno5 (grad_ls3, levelset3, uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
+     if (iter == 0) then
+        wx = levelset1
+        wy = levelset2
+        wz = levelset3
+     endif
+
+     call weno5 (grad_ls3, levelset3, wz, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
 
      grad_ls3(:,:,:) = grad_ls3(:,:,:)**2
      call transpose_z_to_y(grad_ls3, mag_grad_ls2)
-     call weno5 (grad_ls2, levelset2, uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
+     call weno5 (grad_ls2, levelset2, wy, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
      mag_grad_ls2(:,:,:) = mag_grad_ls2(:,:,:) + grad_ls2(:,:,:)**2
 
      call transpose_y_to_x(mag_grad_ls2, mag_grad_ls1)
-     call weno5 (grad_ls1, levelset1, ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
+     call weno5 (grad_ls1, levelset1, wx, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
      mag_grad_ls1(:,:,:) = sqrt(mag_grad_ls1(:,:,:) + grad_ls1(:,:,:)**2)
 
      if (iter==0) then
         !! Compute smoothing function
-        S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 &
-             + (mag_grad_ls1(:,:,:) * dx)**2 &
-             + eps)
+        do k = 1, xsize(3)
+           do j = 1, xsize(2)
+              do i = 1, xsize(1)
+                 if (levelset1(i, j, k) < alpha) then
+                    S1(i, j, k) = levelset1(i, j, k) / sqrt(levelset1(i, j, k)**2 &
+                         + (mag_grad_ls1(i, j, k) * dx)**2 &
+                         + eps)
+                 else
+                    S1(i, j, k) = zero
+                 endif
+              enddo
+           enddo
+        enddo
      endif
 
      !! Calc pseudo timestep (CFL < 1)
-     wx(:,:,:) = S1(:,:,:) * grad_ls1(:,:,:) / (mag_grad_ls1(:,:,:) + eps)
-     dtau = 0.1 * dx / maxval(wx)
-     print *, "dtau: ", dtau
+     wx(:,:,:) = S1(:,:,:) * grad_ls1(:,:,:) / (mag_grad_ls1(:,:,:) + epsilon(one))
+     dtau = deltax / ten / (max(maxval(wx), maxval(wy), maxval(wz)) + epsilon(one))
 
      !! Update level-set
      levelset1_old(:,:,:) = levelset1(:,:,:)
      levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * (S1(:,:,:) - wx(:,:,:) * grad_ls1(:,:,:))
         
-     !! Test convergence
-     rms_delta = sqrt(sum((levelset1(:,:,:) - levelset1_old(:,:,:))**2) / nx / ny / nz)
-     if (rms_delta < (ten * eps)) then
+     !! Test convergence (SUSSMAN1994)
+     delta_ls = zero
+     ctr = zero
+     do k = 1, xsize(3)
+        do j = 1, xsize(2)
+           do i = 1, xsize(1)
+              if (abs(levelset1_old(i, j, k)) < alpha) then
+                 delta_ls = delta_ls + abs(levelset1(i, j, k) - levelset1_old(i, j, k))
+                 ctr = ctr + one
+              endif
+           enddo
+        enddo
+     enddo
+     if (delta_ls < ctr * dtau * deltax**2) then
         converged = .true.
-     else
-        print *, "RMS: ", rms_delta
      endif
 
      iter = iter + 1

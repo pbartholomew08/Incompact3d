@@ -491,7 +491,7 @@ SUBROUTINE intt(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
         ENDIF
      ENDDO
 
-     CALL reinit_ls(phi1(:,:,:,1), ux1, uy1, uz1)
+     CALL reinit_ls(phi1(:,:,:,1))
 
      IF (primary_species.GE.1) THEN
         phi1(:,:,:,primary_species) = one
