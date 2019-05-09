@@ -1238,9 +1238,9 @@ ENDSUBROUTINE calc_mweight
 !!------------------------------------------------------------------------
 subroutine reinit_ls(levelset1)
 
-  use decomp_2d, only : mytype, xsize, ysize, zsize
+  use decomp_2d, only : mytype, xsize, ysize, zsize, nrank
   use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
-  use param, only : zero, half, one, two, five, ten
+  use param, only : zero, half, one, two, three, five, ten
   use param, only : dt, dx, dy, dz
   use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
   use variables, only : nx, ny, nz
@@ -1248,14 +1248,15 @@ subroutine reinit_ls(levelset1)
   !! Derivatives
   use weno, only : weno5
 
+  !! Work vectors
   use var, only : S1 => ta1
-  use var, only : mag_grad_ls1 => tb1, grad_ls1 => tc1
-  use var, only : levelset1_old => td1
-  use var, only : wx => tf1
-  use var, only : levelset2 => ta2, mag_grad_ls2 => tb2, grad_ls2 => tc2
-  use var, only : wy => td2
-  use var, only : levelset3 => ta3, grad_ls3 =>tb3
-  use var, only : wz => tc3
+  use var, only : mag_grad_ls1 => tb1, gradx_ls1 => tc1, grady_ls1 => td1, gradz_ls1 => te1
+  use var, only : levelset1_old => te1
+  use var, only : wx1 => tf1, wy1 => tg1, wz1 => th1
+  use var, only : levelset2 => ta2, mag_grad_ls2 => tb2, grady_ls2 => tc2, gradz_ls2 => td2
+  use var, only : wy2 => te2, wz2 => tf2
+  use var, only : levelset3 => ta3, gradz_ls3 =>tb3
+  use var, only : wz3 => tc3
   
   implicit none
 
@@ -1274,49 +1275,56 @@ subroutine reinit_ls(levelset1)
   real(mytype) :: ctr
   real(mytype) :: alpha
   
-  real(mytype) :: eps
+  real(mytype) :: eps, macheps
 
-  deltax = sqrt(dx**2 + dy**2 + dz**2)
+  deltax = (dx * dy * dz)**(one / three)
   eps = deltax !! SUSSMAN1994
   alpha = five * deltax
+
+  macheps = epsilon(one)
 
   !! Step to steady state
   converged = .false.
   iter = 0
   dtau = dt
   do while (.not.converged)
-     print *, "Level-set reinitialisation: ", iter
+     if (nrank == 0) then
+        print *, "Level-set reinitialisation: ", iter
+     endif
      
      !! Compute level-set gradient magnitude
      call transpose_x_to_y(levelset1, levelset2)
      call transpose_y_to_z(levelset2, levelset3)
 
      if (iter == 0) then
-        wx = levelset1
-        wy = levelset2
-        wz = levelset3
+        call init_w_ls (wx1, wy2, wz3, levelset1, levelset2, levelset3)
      endif
 
-     call weno5 (grad_ls3, levelset3, wz, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
+     call weno5 (gradz_ls3, levelset3, wz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
 
-     grad_ls3(:,:,:) = grad_ls3(:,:,:)**2
-     call transpose_z_to_y(grad_ls3, mag_grad_ls2)
-     call weno5 (grad_ls2, levelset2, wy, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
-     mag_grad_ls2(:,:,:) = mag_grad_ls2(:,:,:) + grad_ls2(:,:,:)**2
+     call transpose_z_to_y(gradz_ls3, gradz_ls2)
+     call weno5 (grady_ls2, levelset2, wy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
 
-     call transpose_y_to_x(mag_grad_ls2, mag_grad_ls1)
-     call weno5 (grad_ls1, levelset1, wx, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
-     mag_grad_ls1(:,:,:) = sqrt(mag_grad_ls1(:,:,:) + grad_ls1(:,:,:)**2)
+     call transpose_y_to_x(grady_ls2, grady_ls1)
+     call transpose_y_to_x(gradz_ls2, gradz_ls1)
+     call weno5 (gradx_ls1, levelset1, wx1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
+     mag_grad_ls1(:,:,:) = sqrt(gradx_ls1(:,:,:)**2 &
+          + grady_ls1(:,:,:)**2 + gradz_ls1(:,:,:)**2)
 
      if (iter==0) then
         !! Compute smoothing function
         do k = 1, xsize(3)
            do j = 1, xsize(2)
               do i = 1, xsize(1)
-                 if (levelset1(i, j, k) < alpha) then
+                 if (abs(levelset1(i, j, k)) < alpha) then
+                    !! SUSSMAN1994
                     S1(i, j, k) = levelset1(i, j, k) / sqrt(levelset1(i, j, k)**2 &
-                         + (mag_grad_ls1(i, j, k) * dx)**2 &
-                         + eps)
+                         + eps**2)
+
+                    ! !! MCSHERRY2017
+                    ! S1(i, j, k) = levelset1(i, j, k) / sqrt(levelset1(i, j, k)**2 &
+                    !      + (mag_grad_ls1(i, j, k) * deltax)**2 &
+                    !      + macheps)
                  else
                     S1(i, j, k) = zero
                  endif
@@ -1325,9 +1333,16 @@ subroutine reinit_ls(levelset1)
         enddo
      endif
 
-     !! Calc pseudo timestep (CFL < 1)
-     wx(:,:,:) = S1(:,:,:) * grad_ls1(:,:,:) / (mag_grad_ls1(:,:,:) + epsilon(one))
-     dtau = deltax / ten / (max(maxval(wx), maxval(wy), maxval(wz)) + epsilon(one))
+     !! Compute "velocity" (used by WENO)
+     wx1(:,:,:) = S1(:,:,:) * gradx_ls1(:,:,:) / (mag_grad_ls1(:,:,:) + macheps)
+     wy1(:,:,:) = S1(:,:,:) * grady_ls1(:,:,:) / (mag_grad_ls1(:,:,:) + macheps)
+     wz1(:,:,:) = S1(:,:,:) * gradz_ls1(:,:,:) / (mag_grad_ls1(:,:,:) + macheps)
+
+     !! Compute (conservatively) stable pseudo timestep (CFL < 1)
+     dtau = deltax / ten / max(maxval(wx1), abs(minval(wx1)), &
+          maxval(wy1), abs(minval(wy1)), &
+          maxval(wz1), abs(minval(wz1)), &
+          one)
 
      !! Update level-set
      levelset1_old(:,:,:) = levelset1(:,:,:)
