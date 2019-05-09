@@ -1331,7 +1331,15 @@ subroutine reinit_ls(levelset1)
 
      !! Update level-set
      levelset1_old(:,:,:) = levelset1(:,:,:)
-     levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * (S1(:,:,:) - wx(:,:,:) * grad_ls1(:,:,:))
+
+     ! ! Solve an 'advection' equation
+     ! levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * (S1(:,:,:) &
+     !      - wx1(:,:,:) * gradx_ls1(:,:,:) &
+     !      - wy1(:,:,:) * grady_ls1(:,:,:) &
+     !      - wz1(:,:,:) * gradz_ls1(:,:,:))
+
+     ! Solve an ODE
+     levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
         
      !! Test convergence (SUSSMAN1994)
      delta_ls = zero
