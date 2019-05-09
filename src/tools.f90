@@ -1358,3 +1358,69 @@ subroutine reinit_ls(levelset1)
   enddo
 
 end subroutine reinit_ls
+
+subroutine init_w_ls (wx1, wy2, wz3, ls1, ls2, ls3)
+
+  use decomp_2d, only : mytype, xsize, ysize, zsize
+  use param, only : zero, two
+  use param, only : nclx1, nclxn
+  use param, only : dx
+  
+  implicit none
+
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: ls1
+  real(mytype), dimension(ysize(1), ysize(2), ysize(3)), intent(in) :: ls2
+  real(mytype), dimension(zsize(1), zsize(2), zsize(3)), intent(in) :: ls3
+
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(out) :: wx1
+  real(mytype), dimension(ysize(1), ysize(2), ysize(3)), intent(out) :: wy2
+  real(mytype), dimension(zsize(1), zsize(2), zsize(3)), intent(out) :: wz3
+
+  integer :: i, j, k
+
+  do k = 1, xsize(3)
+     do j = 1, xsize(2)
+        do i = 2, xsize(1) - 1
+           if (wx1(i, j, k) > zero) then
+              wx1(i, j, k) = (ls1(i, j, k) - ls1(i - 1, j, k)) / dx
+           elseif (wx1(i, j, k) < zero) then
+              wx1(i, j, k) = (ls1(i + 1, j, k) - ls1(i, j, k)) / dx
+           else
+              wx1(i, j, k) = (ls1(i + 1, j, k) - ls1(i - 1, j, k)) / (two * dx)
+           endif
+        enddo
+        if ((nclx1==0).and.(nclxn==0)) then
+           if (wx1(1, j, k) > zero) then
+              wx1(1, j, k) = (ls1(1, j, k) - ls1(xsize(1), j, k)) / dx
+           elseif (wx1(1, j, k) < zero) then
+              wx1(1, j, k) = (ls1(2, j, k) - ls1(1, j, k)) / dx
+           else
+              wx1(1, j, k) = (ls1(2, j, k) - ls1(xsize(1), j, k)) / (two * dx)
+           endif
+
+           if (wx1(xsize(1), j, k) > zero) then
+              wx1(xsize(1), j, k) = (ls1(xsize(1), j, k) - ls1(xsize(1) - 1, j, k)) / dx
+           elseif (wx1(xsize(1), j, k) < zero) then
+           else
+              wx1(xsize(1), j, k) = (ls1(1, j, k) - ls1(xsize(1), j, k)) / (two * dx)
+           endif
+        else
+           if (nclx1==1) then
+              wx1(1, :, :) = zero
+           else
+              wx1(1, :, :) = (ls1(2, :, :) - ls1(1, :, :)) / dx
+           endif
+
+           if (nclxn==1) then
+              wx1(xsize(1), :, :) = zero
+           else
+              wx1(xsize(1), :, :) = (ls1(xsize(1), :, :) - ls1(xsize(1) - 1, :, :)) / dx
+           endif
+        endif
+     enddo
+  enddo
+
+  wy2(:,:,:) = zero
+  wz3(:,:,:) = zero
+  
+endsubroutine init_w_ls
