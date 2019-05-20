@@ -489,6 +489,8 @@ CONTAINS
     USE variables
     USE decomp_2d
 
+    USE weno, ONLY : weno5
+
     USE var, ONLY : ta1,tb1,tc1,td1,di1
     USE var, ONLY : rho2,uy2,phi2,ta2,tb2,tc2,td2,di2
     USE var, ONLY : rho3,uz3,phi3,ta3,tb3,td3,di3
