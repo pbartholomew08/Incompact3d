@@ -281,7 +281,7 @@ module param
 
   !! Free surface
   logical :: ifreesurface
-  logical, allocatable, dimension(:) :: ilevelset
+  integer :: ilevelset
 
   !! Case-specific variables
   logical :: tgv_twod

@@ -597,6 +597,7 @@ CONTAINS
 
     !! LOCALS
     integer :: is
+    logical :: ihyperbolic
 
     !!=====================================================================
     !! XXX It is assumed that ux,uy,uz are already updated in all pencils!
@@ -606,7 +607,12 @@ CONTAINS
        if (is.ne.primary_species) then
           !! For mass fractions enforce primary species Y_p = 1 - sum_s Y_s
           !! So don't solve a transport equation
-          call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is), ilevelset(is))
+          if (is.ne.ilevelset) then
+             ihyperbolic = .TRUE.
+          else
+             ihyperbolic = .FALSE.
+          endif
+          call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is), ihyperbolic)
        endif
 
     end do !loop numscalar

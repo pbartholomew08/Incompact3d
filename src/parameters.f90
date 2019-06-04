@@ -441,6 +441,7 @@ subroutine parameter_defaults()
 
   !! Free-surface stuff
   ifreesurface = .FALSE.
+  ilevelset = -1
 
   !! IO
   ivisu = 1
