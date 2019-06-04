@@ -29,12 +29,19 @@ CONTAINS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1
 
     integer :: i,j,k,is
+    real(mytype) :: rhocons
+
+    if (ifreesurface) then
+       rhocons = zero
+    else
+       rhocons = one
+    endif
 
     !SKEW SYMMETRIC FORM
     !WORK X-PENCILS
-    ta1(:,:,:) = rho1(:,:,:,1) * ux1(:,:,:) * ux1(:,:,:)
-    tb1(:,:,:) = rho1(:,:,:,1) * ux1(:,:,:) * uy1(:,:,:)
-    tc1(:,:,:) = rho1(:,:,:,1) * ux1(:,:,:) * uz1(:,:,:)
+    ta1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * ux1(:,:,:)
+    tb1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * uy1(:,:,:)
+    tc1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * uz1(:,:,:)
 
     call derx (td1,ta1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (te1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
@@ -43,9 +50,9 @@ CONTAINS
     call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
-    ta1(:,:,:) = td1(:,:,:) + rho1(:,:,:,1) * ux1(:,:,:) * ta1(:,:,:)
-    tb1(:,:,:) = te1(:,:,:) + rho1(:,:,:,1) * ux1(:,:,:) * tb1(:,:,:)
-    tc1(:,:,:) = tf1(:,:,:) + rho1(:,:,:,1) * ux1(:,:,:) * tc1(:,:,:)
+    ta1(:,:,:) = td1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * ta1(:,:,:)
+    tb1(:,:,:) = te1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * tb1(:,:,:)
+    tc1(:,:,:) = tf1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * tc1(:,:,:)
 
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -69,9 +76,9 @@ CONTAINS
     endif
 
     !WORK Y-PENCILS
-    td2(:,:,:) = rho2(:,:,:) * ux2(:,:,:) * uy2(:,:,:)
-    te2(:,:,:) = rho2(:,:,:) * uy2(:,:,:) * uy2(:,:,:)
-    tf2(:,:,:) = rho2(:,:,:) * uz2(:,:,:) * uy2(:,:,:)
+    td2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * ux2(:,:,:) * uy2(:,:,:)
+    te2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * uy2(:,:,:)
+    tf2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * uz2(:,:,:) * uy2(:,:,:)
 
     call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
     call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
@@ -80,9 +87,9 @@ CONTAINS
     call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
     call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
 
-    ta2(:,:,:) = ta2(:,:,:) + (tg2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * td2(:,:,:))
-    tb2(:,:,:) = tb2(:,:,:) + (th2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * te2(:,:,:))
-    tc2(:,:,:) = tc2(:,:,:) + (ti2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * tf2(:,:,:))
+    ta2(:,:,:) = ta2(:,:,:) + (tg2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * td2(:,:,:))
+    tb2(:,:,:) = tb2(:,:,:) + (th2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * te2(:,:,:))
+    tc2(:,:,:) = tc2(:,:,:) + (ti2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * tf2(:,:,:))
 
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -106,9 +113,9 @@ CONTAINS
     endif
 
     !WORK Z-PENCILS
-    td3(:,:,:) = rho3(:,:,:) * ux3(:,:,:) * uz3(:,:,:)
-    te3(:,:,:) = rho3(:,:,:) * uy3(:,:,:) * uz3(:,:,:)
-    tf3(:,:,:) = rho3(:,:,:) * uz3(:,:,:) * uz3(:,:,:)
+    td3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * ux3(:,:,:) * uz3(:,:,:)
+    te3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * uy3(:,:,:) * uz3(:,:,:)
+    tf3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * uz3(:,:,:)
 
     call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
     call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
@@ -117,9 +124,9 @@ CONTAINS
     call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
     call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
 
-    ta3(:,:,:) = ta3(:,:,:) + (tg3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * td3(:,:,:))
-    tb3(:,:,:) = tb3(:,:,:) + (th3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * te3(:,:,:))
-    tc3(:,:,:) = tc3(:,:,:) + (ti3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * tf3(:,:,:))
+    ta3(:,:,:) = ta3(:,:,:) + (tg3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * td3(:,:,:))
+    tb3(:,:,:) = tb3(:,:,:) + (th3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * te3(:,:,:))
+    tc3(:,:,:) = tc3(:,:,:) + (ti3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * tf3(:,:,:))
 
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -138,6 +145,12 @@ CONTAINS
     ta3(:,:,:) = half * ta3(:,:,:)
     tb3(:,:,:) = half * tb3(:,:,:)
     tc3(:,:,:) = half * tc3(:,:,:)
+
+    if (ifreesurface) then
+       ta3(:,:,:) = rho3(:,:,:) * ta3(:,:,:)
+       tb3(:,:,:) = rho3(:,:,:) * tb3(:,:,:)
+       tc3(:,:,:) = rho3(:,:,:) * tc3(:,:,:)
+    endif
 
     !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
     td3 = ta3
@@ -266,6 +279,12 @@ CONTAINS
     if (itrip == 1) then
        call tripping(tb1,td1)
        if (nrank == 0) print *,'TRIPPING KTH STYLE!!'
+    endif
+
+    if (ifreesurface) then
+       dux1(:,:,:,1) = dux1(:,:,:,1) / rho1(:,:,:,1)
+       duy1(:,:,:,1) = duy1(:,:,:,1) / rho1(:,:,:,1)
+       duz1(:,:,:,1) = duz1(:,:,:,1) / rho1(:,:,:,1)
     endif
 
   end subroutine momentum_rhs_eq

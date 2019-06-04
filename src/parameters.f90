@@ -435,6 +435,9 @@ subroutine parameter_defaults()
 
   primary_species = -1
 
+  !! Free-surface stuff
+  ifreesurface = .FALSE.
+
   !! IO
   ivisu = 1
   ipost = 0

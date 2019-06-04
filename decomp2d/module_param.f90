@@ -279,6 +279,9 @@ module param
   real(mytype), allocatable, dimension(:) :: mol_weight
   integer :: primary_species
 
+  !! Free surface
+  logical :: ifreesurface
+
   !! Case-specific variables
   logical :: tgv_twod
 
