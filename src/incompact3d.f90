@@ -480,11 +480,9 @@ SUBROUTINE intt(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
         ENDIF
      ENDDO
 
-     DO is = 1, numscalar
-        IF (is.eq.ilevelset) THEN
-           CALL reinit_ls(phi1(:,:,:,is))
-        ENDIF
-     ENDDO
+     IF (ilevelset.gt.0) THEN
+        CALL reinit_ls(phi1(:,:,:,ilevelset))
+     ENDIF
 
      IF (primary_species.GE.1) THEN
         phi1(:,:,:,primary_species) = one
