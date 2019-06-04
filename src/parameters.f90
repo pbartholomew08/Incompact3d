@@ -124,6 +124,10 @@ subroutine parameter(input_i3d)
      allocate(mol_weight(numscalar))
      massfrac(:) = .FALSE.
      mol_weight(:) = one
+
+     !! Freesurface related scalars
+     allocate(ilevelset(numscalar))
+     ilevelset(:) = .FALSE.
   endif
   
   if (iibm.ne.0) then

@@ -1,5 +1,7 @@
 MODULE transeq
 
+  use weno, only : weno5
+
   PRIVATE
   PUBLIC :: momentum_rhs_eq, continuity_rhs_eq, scalar, temperature_rhs_eq, scalar_transport_eq
 
@@ -481,7 +483,7 @@ CONTAINS
 
   end subroutine momentum_gravity
 
-  subroutine scalar_transport_eq(dphi1, rho1, ux1, phi1, schmidt)
+  subroutine scalar_transport_eq(dphi1, rho1, ux1, phi1, schmidt, ihyperbolic)
 
     USE param
     USE variables
@@ -498,6 +500,7 @@ CONTAINS
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: phi1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
     REAL(mytype), INTENT(IN) :: schmidt
+    logical, intent(in) :: ihyperbolic
 
     !! OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dphi1
@@ -506,31 +509,49 @@ CONTAINS
     integer :: i, j, k
 
     !X PENCILS
-    call derxS (tb1,phi1(:,:,:),di1,sx,ffxpS,fsxpS,fwxpS,xsize(1),xsize(2),xsize(3),1)
-    tb1(:,:,:) = rho1(:,:,:,1) * ux1(:,:,:) * tb1(:,:,:)
-    call derxxS (ta1,phi1(:,:,:),di1,sx,sfxpS,ssxpS,swxpS,xsize(1),xsize(2),xsize(3),1)
+    if (.not.ihyperbolic) then
+       call derxS (tb1,phi1(:,:,:),di1,sx,ffxpS,fsxpS,fwxpS,xsize(1),xsize(2),xsize(3),1)
+       tb1(:,:,:) = rho1(:,:,:,1) * ux1(:,:,:) * tb1(:,:,:)
+       call derxxS (ta1,phi1(:,:,:),di1,sx,sfxpS,ssxpS,swxpS,xsize(1),xsize(2),xsize(3),1)
+    else
+       call weno5(tb1, phi1(:,:,:), ux1, 0, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
+       tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
+       ta1(:,:,:) = zero
+    endif
     call transpose_x_to_y(phi1(:,:,:),td2(:,:,:))
 
     !Y PENCILS
-    call deryS (tb2,td2(:,:,:),di2,sy,ffypS,fsypS,fwypS,ppy,ysize(1),ysize(2),ysize(3),1)
-    tb2(:,:,:) = rho2(:,:,:) * uy2(:,:,:) * tb2(:,:,:)
-    call deryyS (ta2,td2(:,:,:),di2,sy,sfypS,ssypS,swypS,ysize(1),ysize(2),ysize(3),1)
-    if (istret.ne.0) then
-       call deryS (tc2,td2(:,:,:),di2,sy,ffypS,fsypS,fwypS,ppy,ysize(1),ysize(2),ysize(3),1)
-       do k = 1,ysize(3)
-          do j = 1,ysize(2)
-             do i = 1,ysize(1)
-                ta2(i,j,k) = ta2(i,j,k)*pp2y(j)-pp4y(j)*tc2(i,j,k)
+    if (.not.ihyperbolic) then
+       call deryS (tb2,td2(:,:,:),di2,sy,ffypS,fsypS,fwypS,ppy,ysize(1),ysize(2),ysize(3),1)
+       tb2(:,:,:) = rho2(:,:,:) * uy2(:,:,:) * tb2(:,:,:)
+       call deryyS (ta2,td2(:,:,:),di2,sy,sfypS,ssypS,swypS,ysize(1),ysize(2),ysize(3),1)
+       if (istret.ne.0) then
+          call deryS (tc2,td2(:,:,:),di2,sy,ffypS,fsypS,fwypS,ppy,ysize(1),ysize(2),ysize(3),1)
+          do k = 1,ysize(3)
+             do j = 1,ysize(2)
+                do i = 1,ysize(1)
+                   ta2(i,j,k) = ta2(i,j,k)*pp2y(j)-pp4y(j)*tc2(i,j,k)
+                enddo
              enddo
           enddo
-       enddo
+       endif
+    else
+       call weno5(tb2, td2(:,:,:), uy2, 1, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
+       tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
+       ta2(:,:,:) = zero
     endif
     call transpose_y_to_z(td2(:,:,:),td3(:,:,:))
 
     !Z PENCILS
-    call derzS (tb3,td3(:,:,:),di3,sz,ffzpS,fszpS,fwzpS,zsize(1),zsize(2),zsize(3),1)
-    tb3(:,:,:) = rho2(:,:,:) * uz3(:,:,:) * tb3(:,:,:)
-    call derzzS (ta3,td3(:,:,:),di3,sz,sfzpS,sszpS,swzpS,zsize(1),zsize(2),zsize(3),1)
+    if (.not.ihyperbolic) then
+       call derzS (tb3,td3(:,:,:),di3,sz,ffzpS,fszpS,fwzpS,zsize(1),zsize(2),zsize(3),1)
+       tb3(:,:,:) = rho2(:,:,:) * uz3(:,:,:) * tb3(:,:,:)
+       call derzzS (ta3,td3(:,:,:),di3,sz,sfzpS,sszpS,swzpS,zsize(1),zsize(2),zsize(3),1)
+    else
+       call weno5(tb3, td3(:,:,:), uz3, 2, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
+       tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:)
+       ta3(:,:,:) = zero
+    endif
 
     call transpose_z_to_y(ta3,tc2)
     call transpose_z_to_y(tb3,td2)
@@ -546,7 +567,6 @@ CONTAINS
     ta1 = ta1+tc1 !SECOND DERIVATIVE
     tb1 = tb1+td1 !FIRST DERIVATIVE
 
-    ta1 = zero
     if (nrank.eq.0) then
        print *, "WARNING: disabled scalar diffusion!"
     endif
@@ -586,7 +606,7 @@ CONTAINS
        if (is.ne.primary_species) then
           !! For mass fractions enforce primary species Y_p = 1 - sum_s Y_s
           !! So don't solve a transport equation
-          call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is))
+          call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is), ilevelset(is))
        endif
 
     end do !loop numscalar
@@ -627,7 +647,7 @@ CONTAINS
     !!=====================================================================
     !! XXX It is assumed that ux,uy,uz are already updated in all pencils!
     !!=====================================================================
-    call scalar_transport_eq(drho1, rho1, ux1, te1, prandtl)
+    call scalar_transport_eq(drho1, rho1, ux1, te1, prandtl, .false.)
 
   end subroutine temperature_rhs_eq
 
