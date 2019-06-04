@@ -430,7 +430,7 @@ SUBROUTINE intt(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
   USE decomp_2d, ONLY : mytype, xsize
   USE param, ONLY : zero, one
   USE param, ONLY : ntime, nrhotime, ilmn, iscalar, ilmn_solve_temp
-  USE param, ONLY : primary_species, massfrac
+  USE param, ONLY : primary_species, massfrac, ilevelset
   USE variables, ONLY : numscalar
   USE var, ONLY : ta1, tb1
 
@@ -481,7 +481,11 @@ SUBROUTINE intt(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
         ENDIF
      ENDDO
 
-     CALL reinit_ls(phi1(:,:,:,1))
+     DO is = 1, numscalar
+        IF (is.eq.ilevelset) THEN
+           CALL reinit_ls(phi1(:,:,:,is))
+        ENDIF
+     ENDDO
 
      IF (primary_species.GE.1) THEN
         phi1(:,:,:,primary_species) = one
