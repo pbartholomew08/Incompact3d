@@ -40,6 +40,8 @@
 !================================================================================
 subroutine parameter(input_i3d)
 
+  USE iso_fortran_env
+
   USE param
   USE variables
   USE complex_geometry
@@ -47,6 +49,8 @@ subroutine parameter(input_i3d)
   USE ibm
 
   USE var, ONLY : dphi1
+
+  USE lockexch, ONLY : pfront
 
   implicit none
 
@@ -57,21 +61,23 @@ subroutine parameter(input_i3d)
   NAMELIST /BasicParam/ p_row, p_col, nx, ny, nz, istret, beta, xlx, yly, zlz, &
        itype, iin, re, u1, u2, init_noise, inflow_noise, &
        dt, ifirst, ilast, &
-       ilesmod, numscalar, iibm, ilmn, &
-       ilesmod, iscalar, iibm, &
+       numscalar, iibm, ilmn, &
+       ilesmod, iscalar, &
        nclx1, nclxn, ncly1, nclyn, nclz1, nclzn, &
        ivisu, ipost, &
        gravx, gravy, gravz
   NAMELIST /NumOptions/ ifirstder, isecondder, itimescheme, rxxnu, cnu, fpi2, ipinter
-  NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu
+  NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu, iprocessing
   NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat
   NAMELIST /ScalarParam/ sc, ri, &
-       nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn
+       nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn, &
+       scalar_lbound, scalar_ubound
   NAMELIST /LESModel/ jles, smagcst, walecst, iwall
   NAMELIST /WallModel/ smagwalldamp
 
   NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf
   NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, massfrac, mol_weight, imultispecies, primary_species
+  NAMELIST /CASE/ tgv_twod, pfront
 #ifdef DEBG
   if (nrank .eq. 0) print *,'# parameter start'
 #endif
@@ -104,13 +110,29 @@ subroutine parameter(input_i3d)
   if (iibm.ne.0) then
      read(10, nml=ibmstuff)
   endif
+
+  if (numscalar.ne.0) then
+     iscalar = 1
+     !! Set Scalar BCs same as fluid (may be overridden)
+     nclxS1 = nclx1; nclxSn = nclxn
+     nclyS1 = ncly1; nclySn = nclyn
+     nclzS1 = nclz1; nclzSn = nclzn
+     
+     !! Allocate scalar arrays and set sensible defaults
+     allocate(massfrac(numscalar))
+     allocate(mol_weight(numscalar))
+     massfrac(:) = .FALSE.
+     mol_weight(:) = one
+     allocate(sc(numscalar), ri(numscalar), uset(numscalar))
+     ri(:) = zero
+     uset(:) = zero
+
+     allocate(scalar_lbound(numscalar), scalar_ubound(numscalar))
+     scalar_lbound(:) = -huge(one)
+     scalar_ubound(:) = huge(one)
+  endif
+  
   if (ilmn) then
-     if (numscalar.ne.0) then
-        allocate(massfrac(numscalar))
-        allocate(mol_weight(numscalar))
-        massfrac(:) = .FALSE.
-        mol_weight(:) = one
-     endif
      read(10, nml=LMN)
 
      do is = 1, numscalar
@@ -134,19 +156,13 @@ subroutine parameter(input_i3d)
      endif
   endif
   if (numscalar.ne.0) then
-     iscalar = 1
-     !! Set Scalar BCs same as fluid (may be overridden)
-     nclxS1 = nclx1; nclxSn = nclxn
-     nclyS1 = ncly1; nclySn = nclyn
-     nclzS1 = nclz1; nclzSn = nclzn
-     allocate(sc(numscalar), ri(numscalar))
-     ri(:) = zero
      read(10, nml=ScalarParam)
   endif
   ! !! These are the 'optional'/model parameters
   ! read(10, nml=ScalarParam)
   if(ilesmod.ne.0) read(10, nml=LESModel)
   ! read(10, nml=TurbulenceWallModel)
+  read(10, nml=CASE) !! Read case-specific variables
   close(10)
 
   ! allocate(sc(numscalar),cp(numscalar),ri(numscalar),group(numscalar))
@@ -300,6 +316,13 @@ subroutine parameter(input_i3d)
      endif
      if (angle.ne.0.) write(*,"(' Solid rotation     : ',F6.2)") angle
      print *,''
+
+     !! Print case-specific information
+     if (itype==itype_lockexch) then
+        print *, "Initial front location: ", pfront
+     elseif (itype==itype_tgv) then
+        print *, "TGV 2D: ", tgv_twod
+     endif
   endif
 
   xnu=one/re
@@ -307,6 +330,8 @@ subroutine parameter(input_i3d)
   if (ilmn) then
      if (ivarcoeff) then
         npress = 2 !! Need current pressure and previous iterate
+     else
+        npress = 1
      endif
   endif
 
@@ -344,6 +369,8 @@ subroutine parameter_defaults()
   USE complex_geometry
 
   IMPLICIT NONE
+
+  integer :: i
 
   ro = 99999999._mytype
   angle = zero
@@ -394,6 +421,7 @@ subroutine parameter_defaults()
   !! IO
   ivisu = 1
   ipost = 0
+  iprocessing = huge(i)
 
   save_ux = 0
   save_uy = 0
@@ -434,5 +462,8 @@ subroutine parameter_defaults()
   izap = 1
 
   imodulo2 = 1
+
+  !! CASE specific variables
+  tgv_twod = .FALSE.
 
 end subroutine parameter_defaults

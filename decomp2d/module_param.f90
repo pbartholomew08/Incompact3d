@@ -257,6 +257,9 @@ module param
 
 #endif
 
+  !! Scalars
+  real(mytype), allocatable, dimension(:) :: scalar_lbound, scalar_ubound
+
   !! LES modelling flag
   integer :: ilesmod, iwall
 
@@ -278,6 +281,9 @@ module param
   logical, allocatable, dimension(:) :: massfrac
   real(mytype), allocatable, dimension(:) :: mol_weight
   integer :: primary_species
+
+  !! Case-specific variables
+  logical :: tgv_twod
 
   character :: filesauve*80, filenoise*80, &
        nchamp*80,filepath*80, fileturb*80, filevisu*80, datapath*80
