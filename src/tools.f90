@@ -1300,14 +1300,14 @@ subroutine reinit_ls(levelset1)
         call init_w_ls (wx1, wy2, wz3, levelset1, levelset2, levelset3)
      endif
 
-     call weno5 (gradz_ls3, levelset3, wz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
+     call weno5 (gradz_ls3, levelset3, wz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
 
      call transpose_z_to_y(gradz_ls3, gradz_ls2)
-     call weno5 (grady_ls2, levelset2, wy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
+     call weno5 (grady_ls2, levelset2, wy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
 
      call transpose_y_to_x(grady_ls2, grady_ls1)
      call transpose_y_to_x(gradz_ls2, gradz_ls1)
-     call weno5 (gradx_ls1, levelset1, wx1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
+     call weno5 (gradx_ls1, levelset1, wx1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
      mag_grad_ls1(:,:,:) = sqrt(gradx_ls1(:,:,:)**2 &
           + grady_ls1(:,:,:)**2 + gradz_ls1(:,:,:)**2)
 

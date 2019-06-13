@@ -516,7 +516,7 @@ CONTAINS
        tb1(:,:,:) = rho1(:,:,:,1) * ux1(:,:,:) * tb1(:,:,:)
        call derxxS (ta1,phi1(:,:,:),di1,sx,sfxpS,ssxpS,swxpS,xsize(1),xsize(2),xsize(3),1)
     else
-       call weno5(tb1, phi1(:,:,:), ux1, 0, nclx1, nclxn, xsize(1), xsize(2), xsize(3))
+       call weno5(tb1, phi1(:,:,:), ux1, 0, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
        tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
        ta1(:,:,:) = zero
     endif
@@ -538,7 +538,7 @@ CONTAINS
           enddo
        endif
     else
-       call weno5(tb2, td2(:,:,:), uy2, 1, ncly1, nclyn, ysize(1), ysize(2), ysize(3))
+       call weno5(tb2, td2(:,:,:), uy2, 1, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
        tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
        ta2(:,:,:) = zero
     endif
@@ -550,7 +550,7 @@ CONTAINS
        tb3(:,:,:) = rho2(:,:,:) * uz3(:,:,:) * tb3(:,:,:)
        call derzzS (ta3,td3(:,:,:),di3,sz,sfzpS,sszpS,swzpS,zsize(1),zsize(2),zsize(3),1)
     else
-       call weno5(tb3, td3(:,:,:), uz3, 2, nclz1, nclzn, zsize(1), zsize(2), zsize(3))
+       call weno5(tb3, td3(:,:,:), uz3, 2, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
        tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:)
        ta3(:,:,:) = zero
     endif

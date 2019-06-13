@@ -12,7 +12,7 @@ module weno
 
 contains
 
-  subroutine weno5(gradphi, phi, advvel, axis, bc0, bcn, isize, jsize, ksize)
+  subroutine weno5(gradphi, phi, advvel, axis, bc0, bcn, isize, jsize, ksize, npaire)
 
     use decomp_2d, only : mytype
     use param, only : zero, one, two, three, four, five, six, seven, ten, eleven, twelve, thirteen
@@ -23,6 +23,7 @@ contains
     integer, intent(in) :: axis
     integer, intent(in) :: bc0, bcn
     integer, intent(in) :: isize, jsize, ksize
+    integer, intent(in) :: npaire
     real(mytype), dimension(isize, jsize, ksize), intent(in) :: phi
     real(mytype), dimension(isize, jsize, ksize), intent(in) :: advvel
 
@@ -444,7 +445,11 @@ contains
                 !! Use second order
                 i = 1
                 if (bc0==1) then ! Zero grad
-                   gradphi(i, j, k) = zero
+                   if (npaire==0) then
+                      gradphi(i, j, k) = phi(i - 1, j, k) / dx
+                   else
+                      gradphi(i, j, k) = zero
+                   endif
                 else ! Fixed value
                    gradphi(i, j, k) = (phi(i + 1, j, k) - phi(i, j, k)) / dx
                 endif
@@ -457,7 +462,11 @@ contains
                 enddo
                 i = isize
                 if (bcn==1) then ! Zero grad
-                   gradphi(i, j, k) = zero
+                   if (npaire==0) then
+                      gradphi(i, j, k) = phi(i + 1, j, k) / dx
+                   else
+                      gradphi(i, j, k) = zero
+                   endif
                 else
                    gradphi(i, j, k) = (phi(i, j, k) - phi(i - 1, j, k)) / dx
                 endif
@@ -756,7 +765,11 @@ contains
                 !! Use second order
                 j = 1
                 if (bc0==1) then ! Zero grad
-                   gradphi(i, j, k) = zero
+                   if (npaire==0) then
+                      gradphi(i, j, k) = phi(i, j + 1, k) / dy
+                   else
+                      gradphi(i, j, k) = zero
+                   endif
                 else ! Fixed value
                    gradphi(i, j, k) = (phi(i, j + 1, k) - phi(i, j, k)) / dy
                 endif
@@ -769,7 +782,11 @@ contains
                 enddo
                 j = jsize
                 if (bcn==1) then ! Zero grad
-                   gradphi(i, j, k) = zero
+                   if (npaire==0) then
+                      gradphi(i, j, k) = phi(i, j - 1, k) / dy
+                   else
+                      gradphi(i, j, k) = zero
+                   endif
                 else
                    gradphi(i, j, k) = (phi(i, j, k) - phi(i, j - 1, k)) / dy
                 endif
@@ -1071,7 +1088,11 @@ contains
                 !! Use second order
                 k = 1
                 if (bc0==1) then ! Zero grad
-                   gradphi(i, j, k) = zero
+                   if (npaire==0) then
+                      gradphi(i, j, k) = phi(i, j, k + 1) / dz
+                   else
+                      gradphi(i, j, k) = zero
+                   endif
                 else ! Fixed value
                    gradphi(i, j, k) = (phi(i, j, k + 1) - phi(i, j, k)) / dz
                 endif
@@ -1084,7 +1105,11 @@ contains
                 enddo
                 k = ksize
                 if (bcn==1) then ! Zero grad
-                   gradphi(i, j, k) = zero
+                   if (npaire==0) then
+                      gradphi(i, j, k) = phi(i, j, k - 1) / dz
+                   else
+                      gradphi(i, j, k) = zero
+                   endif
                 else
                    gradphi(i, j, k) = (phi(i, j, k) - phi(i, j, k - 1)) / dz
                 endif
