@@ -575,8 +575,10 @@ CONTAINS
     
     dphi1(:,:,:,1) = (xnu/schmidt)*ta1(:,:,:) - tb1(:,:,:)
 
-    !! XXX We have computed rho dphidt, want dphidt
-    dphi1(:,:,:,1) = dphi1(:,:,:,1) / rho1(:,:,:,1)
+    if (.not.ihyperbolic) then
+       !! XXX We have computed rho dphidt, want dphidt
+       dphi1(:,:,:,1) = dphi1(:,:,:,1) / rho1(:,:,:,1)
+    endif
 
   endsubroutine scalar_transport_eq
 
