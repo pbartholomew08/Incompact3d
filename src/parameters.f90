@@ -78,7 +78,7 @@ subroutine parameter(input_i3d)
   NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf
   NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, &
        massfrac, mol_weight, imultispecies, primary_species, &
-       Fr
+       Fr, ibirman_eos
   NAMELIST /CASE/ tgv_twod, pfront
 #ifdef DEBG
   if (nrank .eq. 0) print *,'# parameter start'
@@ -418,6 +418,7 @@ subroutine parameter_defaults()
   ilmn_solve_temp = .FALSE.
   imultispecies = .FALSE.
   Fr = zero
+  ibirman_eos = .FALSE.
 
   primary_species = -1
 
