@@ -1447,3 +1447,40 @@ subroutine init_w_ls (wx1, wy2, wz3, ls1, ls2, ls3)
   wz3(:,:,:) = zero
   
 endsubroutine init_w_ls
+
+subroutine update_fluid_properties(rho1, phi1)
+
+  use decomp_2d, only : mytype, xsize
+  use var, only : zero
+  use var, only : numscalar
+  use param, only : nrhotime, ilevelset
+  use param, only : dens1, dens2
+  
+  implicit none
+
+  !! Input
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3), numscalar), intent(in) :: phi1
+
+  !! InOut
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+
+  !! Local
+  integer :: i, j, k
+
+  !!---------------------------------
+  if (ilevelset.gt.0) then
+     !! Use levelset to set density field
+     do k = 1, xsize(3)
+        do j = 1, xsize(2)
+           do i = 1, xsize(1)
+              if (phi1(i, j, k, ilevelset).gt.zero) then
+                 rho1(i, j, k, 1) = dens1
+              else
+                 rho1(i, j, k, 1) = dens2
+              endif
+           enddo
+        enddo
+     enddo
+  endif
+  
+endsubroutine update_fluid_properties

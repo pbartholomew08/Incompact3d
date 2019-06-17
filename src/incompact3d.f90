@@ -79,6 +79,7 @@ PROGRAM incompact3d
 
   if (irestart==0) then
      call init(rho1,ux1,uy1,uz1,ep1,phi1,drho1,dux1,duy1,duz1,dphi1)
+     call update_fluid_properties(rho1, phi1)
      pp3(:,:,:,1) = zero
      px1(:,:,:) = zero
      py1(:,:,:) = zero
@@ -139,6 +140,8 @@ PROGRAM incompact3d
 
         call intt(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
         call pre_correc(ux1,uy1,uz1,ep1)
+
+        call update_fluid_properties(rho1, phi1)
         !!-------------------------------------------------------------------------
         !! End time integrate transport equations
         !!-------------------------------------------------------------------------
