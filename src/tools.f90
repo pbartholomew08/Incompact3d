@@ -1451,7 +1451,8 @@ endsubroutine init_w_ls
 subroutine update_fluid_properties(rho1, phi1)
 
   use decomp_2d, only : mytype, xsize
-  use var, only : zero
+  use var, only : one, two, three, pi, five
+  use var, only : dx, dy, dz
   use var, only : numscalar
   use param, only : nrhotime, ilevelset
   use param, only : dens1, dens2
@@ -1466,6 +1467,9 @@ subroutine update_fluid_properties(rho1, phi1)
 
   !! Local
   integer :: i, j, k
+  real(mytype) :: alpha
+
+  alpha = five * (dx * dy * dz)**(one / three)
 
   !!---------------------------------
   if (ilevelset.gt.0) then
@@ -1473,10 +1477,17 @@ subroutine update_fluid_properties(rho1, phi1)
      do k = 1, xsize(3)
         do j = 1, xsize(2)
            do i = 1, xsize(1)
-              if (phi1(i, j, k, ilevelset).gt.zero) then
+              if (phi1(i, j, k, ilevelset).gt.alpha) then
+                 !! Fluid 1
                  rho1(i, j, k, 1) = dens1
-              else
+              else if (phi1(i, j, k, ilevelset).lt.-alpha) then
+                 !! Fluid 2
                  rho1(i, j, k, 1) = dens2
+              else
+                 !! Interface: smooth properties
+                 rho1(i, j, k, 1) = ((dens1 + dens2) &
+                      + (dens1 - dens2) * sin(pi * phi1(i, j, k, ilevelset) / (two * alpha))) &
+                      / (two * dens1)
               endif
            enddo
         enddo
