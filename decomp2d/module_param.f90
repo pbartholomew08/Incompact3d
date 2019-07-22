@@ -274,7 +274,7 @@ module param
 
   !! LMN
   logical :: ilmn, ilmn_bound, ilmn_solve_temp
-  real(mytype) :: pressure0, prandtl
+  real(mytype) :: pressure0, prandtl, Fr
   integer :: nrhotime, npress
   logical :: ivarcoeff
 
@@ -282,6 +282,8 @@ module param
   logical, allocatable, dimension(:) :: massfrac
   real(mytype), allocatable, dimension(:) :: mol_weight
   integer :: primary_species
+
+  logical :: ibirman_eos
 
   !! Case-specific variables
   logical :: tgv_twod

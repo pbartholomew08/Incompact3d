@@ -14,10 +14,11 @@ PROGRAM incompact3d
      t=itime*dt
      call simu_stats(2)
 
-     call postprocessing(ux1,uy1,uz1,pp3,phi1,ep1)
+     call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
      do itr=1,iadvance_time
 
+        call set_fluid_properties(rho1, mu1)
         call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
         CALL calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
 

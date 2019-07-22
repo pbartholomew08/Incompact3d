@@ -71,7 +71,7 @@ subroutine parameter(input_i3d)
   NAMELIST /NumOptions/ ifirstder, isecondder, itimescheme, rxxnu, cnu, fpi2, ipinter
   NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu, iprocessing
   NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat
-  NAMELIST /ScalarParam/ sc, ri, &
+  NAMELIST /ScalarParam/ sc, ri, uset, cp, &
        nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn, &
        scalar_lbound, scalar_ubound
   NAMELIST /LESModel/ jles, smagcst, walecst, iwall
@@ -79,7 +79,9 @@ subroutine parameter(input_i3d)
 
   NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf,nvol
   NAMELIST /ForceCVs/ xld, xrd, yld, yud
-  NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, massfrac, mol_weight, imultispecies, primary_species
+  NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, &
+       massfrac, mol_weight, imultispecies, primary_species, &
+       Fr, ibirman_eos
   NAMELIST /CASE/ tgv_twod, pfront
 #ifdef DEBG
   if (nrank .eq. 0) print *,'# parameter start'
@@ -134,9 +136,10 @@ subroutine parameter(input_i3d)
      allocate(mol_weight(numscalar))
      massfrac(:) = .FALSE.
      mol_weight(:) = one
-     allocate(sc(numscalar), ri(numscalar), uset(numscalar))
+     allocate(sc(numscalar), ri(numscalar), uset(numscalar), cp(numscalar))
      ri(:) = zero
      uset(:) = zero
+     cp(:) = zero
 
      allocate(scalar_lbound(numscalar), scalar_ubound(numscalar))
      scalar_lbound(:) = -huge(one)
@@ -431,6 +434,8 @@ subroutine parameter_defaults()
   npress = 1 !! By default people only need one pressure field
   ilmn_solve_temp = .FALSE.
   imultispecies = .FALSE.
+  Fr = zero
+  ibirman_eos = .FALSE.
 
   primary_species = -1
 

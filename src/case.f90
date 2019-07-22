@@ -50,7 +50,7 @@ MODULE case
   IMPLICIT NONE
 
   PRIVATE ! All functions/subroutines private by default
-  PUBLIC :: init, boundary_conditions, postprocessing, momentum_forcing
+  PUBLIC :: init, boundary_conditions, postprocessing, momentum_forcing, set_fluid_properties
 
 CONTAINS
 
@@ -81,7 +81,7 @@ CONTAINS
 
     ELSEIF (itype.EQ.itype_lockexch) THEN
 
-       CALL init_lockexch(ux1, uy1, uz1, ep1, phi1, dux1, duy1, duz1, dphi1)
+       CALL init_lockexch(rho1, ux1, uy1, uz1, ep1, phi1, drho1, dux1, duy1, duz1, dphi1)
 
     ELSEIF (itype.EQ.itype_tgv) THEN
 
@@ -127,7 +127,7 @@ CONTAINS
 
     ELSEIF (itype.EQ.itype_lockexch) THEN
 
-       CALL boundary_conditions_lockexch(phi)
+       CALL boundary_conditions_lockexch(rho, phi)
 
     ELSEIF (itype.EQ.itype_tgv) THEN
 
@@ -157,13 +157,14 @@ CONTAINS
 
   END SUBROUTINE boundary_conditions
 
-  SUBROUTINE postprocessing(ux,uy,uz,pp,phi,ep)
+  SUBROUTINE postprocessing(rho,ux,uy,uz,pp,phi,ep)
     
     USE var, ONLY : nzmsize
     USE param, ONLY : npress
 
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),numscalar) :: phi
+    REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),nrhotime) :: rho
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ep
     real(mytype), dimension(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress), intent(in) :: pp
 
@@ -173,7 +174,7 @@ CONTAINS
 
     ELSEIF (itype.EQ.itype_lockexch) THEN
 
-       CALL postprocessing_lockexch(ux, uy, uz, phi, ep)
+       CALL postprocessing_lockexch(rho, ux, uy, uz, phi, ep)
 
     ELSEIF (itype.EQ.itype_tgv) THEN
 
@@ -229,6 +230,21 @@ CONTAINS
     ENDIF
 
   ENDSUBROUTINE momentum_forcing
+
+  subroutine set_fluid_properties(rho1, mu1)
+
+    implicit none
+
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: rho1
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: mu1
+
+    if (itype.eq.itype_lockexch) then
+
+       call set_fluid_properties_lockexch(rho1, mu1)
+       
+    endif
+    
+  endsubroutine set_fluid_properties
 
 END MODULE case
 

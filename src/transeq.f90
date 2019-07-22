@@ -299,7 +299,9 @@ CONTAINS
     endif
 
     !! Gravity
-    call momentum_gravity(dux1, duy1, duz1, rho1(:,:,:,1) - one, zero)
+    if ((Fr**2).gt.zero) then
+       call momentum_gravity(dux1, duy1, duz1, rho1(:,:,:,1) - one, one / Fr**2)
+    endif
     do is = 1, numscalar
        call momentum_gravity(dux1, duy1, duz1, phi1(:,:,:,is), ri(is))
     enddo
@@ -346,7 +348,7 @@ CONTAINS
     IMPLICIT NONE
 
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: dux1, duy1, duz1
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: mu1
+    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: mu1
     REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: divu3
 
     REAL(mytype) :: one_third
@@ -373,7 +375,7 @@ CONTAINS
     call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (td1,mu1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    ta1(:,:,:) = two * ta1(:,:,:) - two * one_third * tg1(:,:,:)
+    ta1(:,:,:) = two * ta1(:,:,:) - (two * one_third) * tg1(:,:,:)
 
     ta1(:,:,:) = td1(:,:,:) * ta1(:,:,:)
     tb1(:,:,:) = td1(:,:,:) * tb1(:,:,:)
@@ -387,7 +389,7 @@ CONTAINS
     call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
     call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
     call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-    te2(:,:,:) = two * te2(:,:,:) - two * one_third * th2(:,:,:)
+    te2(:,:,:) = two * te2(:,:,:) - (two * one_third) * th2(:,:,:)
 
     call transpose_x_to_y(mu1, ti2)
     call dery (th2,ti2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
@@ -406,7 +408,7 @@ CONTAINS
     call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
     call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
     call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-    tf3(:,:,:) = two * tf3(:,:,:) - two * one_third * divu3(:,:,:)
+    tf3(:,:,:) = two * tf3(:,:,:) - (two * one_third) * divu3(:,:,:)
 
     tc3(:,:,:) = tc3(:,:,:) + tg3(:,:,:) * td3(:,:,:) + th3(:,:,:) * te3(:,:,:)
     
@@ -433,9 +435,9 @@ CONTAINS
     call derx (ti1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     ta1(:,:,:) = ta1(:,:,:) + te1(:,:,:) * th1(:,:,:) + tf1(:,:,:) * ti1(:,:,:)
 
-    dux1(:,:,:) = dux1(:,:,:) + ta1(:,:,:)
-    duy1(:,:,:) = duy1(:,:,:) + tb1(:,:,:)
-    duz1(:,:,:) = duz1(:,:,:) + tc1(:,:,:)
+    dux1(:,:,:) = dux1(:,:,:) + xnu * ta1(:,:,:)
+    duy1(:,:,:) = duy1(:,:,:) + xnu * tb1(:,:,:)
+    duz1(:,:,:) = duz1(:,:,:) + xnu * tc1(:,:,:)
 
   end subroutine momentum_full_viscstress_tensor
 
@@ -507,15 +509,15 @@ CONTAINS
     else
        iend = xsize(1)
     endif
-    if ((xstart(2).eq.1).and.(ncly1.eq.0)) then
-       jstart = 1
-    else
+    if ((xstart(2).eq.1).and.(ncly1.ne.0)) then
        jstart = 2
-    endif
-    if ((xend(2).eq.ny).and.(nclyn.eq.0)) then
-       jend = xsize(2)
     else
+       jstart = 1
+    endif
+    if ((xend(2).eq.ny).and.(nclyn.ne.0)) then
        jend = xsize(2) - 1
+    else
+       jend = xsize(2)
     endif
     if ((xstart(3).eq.1).and.(nclz1.eq.2)) then
        kstart = 2
@@ -556,15 +558,15 @@ CONTAINS
     else
        jend = xsize(2)
     endif
-    if ((xstart(3).eq.1).and.(nclz1.eq.0)) then
-       kstart = 1
-    else
+    if ((xstart(3).eq.1).and.(nclz1.ne.0)) then
        kstart = 2
-    endif
-    if ((xend(3).eq.nz).and.(nclzn.eq.0)) then
-       kend = xsize(3)
     else
+       kstart = 1
+    endif
+    if ((xend(3).eq.nz).and.(nclzn.ne.0)) then
        kend = xsize(3) - 1
+    else
+       kend = xsize(3)
     endif
     do k = kstart, kend
        do j = jstart, jend
@@ -678,6 +680,9 @@ CONTAINS
           !! For mass fractions enforce primary species Y_p = 1 - sum_s Y_s
           !! So don't solve a transport equation
           call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is))
+          if (uset(is).ne.zero) then
+             call scalar_settling(dphi1, phi1(:,:,:,is), is)
+          endif
        endif
 
     end do !loop numscalar
@@ -693,6 +698,45 @@ CONTAINS
     endif
 
   end subroutine scalar
+
+  subroutine scalar_settling(dphi1, phi1, is)
+
+    USE param
+    USE variables
+    USE decomp_2d
+
+    USE var, only : ta1, di1
+    USE var, only : ta2, tb2, di2, phi2 => tc2
+    USE var, only : ta3, di3, phi3 => tb3
+
+    implicit none
+
+    !! INPUTS
+    real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: phi1
+    integer,intent(in) :: is
+
+    !! OUTPUTS
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime,numscalar) :: dphi1
+
+    call transpose_x_to_y(phi1, phi2)
+    call transpose_y_to_z(phi2, phi3)
+    
+    CALL derz (ta3, phi3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    ta3(:,:,:) = uset(is) * gravz * ta3(:,:,:)
+    
+    call transpose_z_to_y(ta3, tb2)
+
+    CALL dery (ta2, phi2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
+    ta2(:,:,:) = uset(is) * gravy * ta2(:,:,:)
+    ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+    
+    call transpose_y_to_x(ta2, ta1)
+    
+    dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) + ta1(:,:,:)
+    CALL derx (ta1, phi1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+    dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) + uset(is) * gravx * ta1(:,:,:)
+    
+  endsubroutine scalar_settling
 
   subroutine temperature_rhs_eq(drho1, rho1, ux1, phi1)
 
@@ -727,10 +771,11 @@ CONTAINS
 
     USE decomp_2d, ONLY : mytype, xsize, ysize, zsize
     USE decomp_2d, ONLY : transpose_z_to_y, transpose_y_to_x
-    USE param, ONLY : ntime, nrhotime
+    USE param, ONLY : ntime, nrhotime, ibirman_eos
+    USE param, ONLY : xnu, prandtl
     USE variables
 
-    USE var, ONLY : ta1, di1
+    USE var, ONLY : ta1, tb1, di1
     USE var, ONLY : rho2, uy2, ta2, tb2, di2
     USE var, ONLY : rho3, uz3, ta3, di3
 
@@ -741,6 +786,10 @@ CONTAINS
     REAL(mytype), INTENT(IN), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
 
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: drho1
+
+    REAL(mytype) :: invpe
+
+    invpe = xnu / prandtl
 
     !! XXX All variables up to date - no need to transpose
 
@@ -755,6 +804,20 @@ CONTAINS
     CALL derx (drho1(:,:,:,1), rho1(:,:,:,1), &
          di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
     drho1(:,:,:,1) = -(ux1(:,:,:) * drho1(:,:,:,1) + ta1(:,:,:))
+
+    IF (ibirman_eos) THEN !! Add a diffusion term
+       CALL derzz (ta3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+       CALL transpose_z_to_y(ta3, tb2)
+
+       CALL deryy (ta2,rho2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+       ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+       CALL transpose_y_to_x(ta2, ta1)
+  
+       CALL derxx (tb1,rho1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+       ta1(:,:,:) = ta1(:,:,:) + tb1(:,:,:)
+
+       drho1(:,:,:,1) = drho1(:,:,:,1) + invpe * ta1(:,:,:)
+    ENDIF
 
   ENDSUBROUTINE continuity_rhs_eq
 
