@@ -395,7 +395,11 @@ CONTAINS
     call derx (ta1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
     call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    call derx (td1,mu1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    if (.not.ifreesurface) then
+       call derx (td1,mu1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    else
+       call weno5(td1, mu1, ux1, 0, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
+    endif
     ta1(:,:,:) = two * ta1(:,:,:) - (two * one_third) * tg1(:,:,:)
 
     ta1(:,:,:) = td1(:,:,:) * ta1(:,:,:)
@@ -413,7 +417,11 @@ CONTAINS
     te2(:,:,:) = two * te2(:,:,:) - (two * one_third) * th2(:,:,:)
 
     call transpose_x_to_y(mu1, ti2)
-    call dery (th2,ti2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    if (.not.ifreesurface) then
+       call dery (th2,ti2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    else
+       call weno5(th2, ti2, uy2, 1, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
+    endif
 
     ta2(:,:,:) = ta2(:,:,:) + th2(:,:,:) * td2(:,:,:)
     tb2(:,:,:) = tb2(:,:,:) + th2(:,:,:) * te2(:,:,:) + tg2(:,:,:) * td2(:,:,:)
@@ -432,8 +440,12 @@ CONTAINS
     tf3(:,:,:) = two * tf3(:,:,:) - (two * one_third) * divu3(:,:,:)
 
     tc3(:,:,:) = tc3(:,:,:) + tg3(:,:,:) * td3(:,:,:) + th3(:,:,:) * te3(:,:,:)
-    
-    call derz (th3,ti3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+
+    if (.not.ifreesurface) then
+       call derz (th3,ti3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    else
+       call weno5(th3, ti3, uz3, 2, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
+    endif
 
     ta3(:,:,:) = ta3(:,:,:) + th3(:,:,:) * td3(:,:,:)
     tb3(:,:,:) = tb3(:,:,:) + th3(:,:,:) * te3(:,:,:)
