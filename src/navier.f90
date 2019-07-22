@@ -9,6 +9,93 @@
 !     Modified: Paul
 !
 !************************************************************************
+
+SUBROUTINE intt(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
+
+  USE decomp_2d, ONLY : mytype, xsize
+  USE param, ONLY : zero, one
+  USE param, ONLY : ntime, nrhotime, ilmn, iscalar, ilmn_solve_temp
+  USE param, ONLY : primary_species, massfrac
+  use param, only : scalar_lbound, scalar_ubound
+  use param, only : ilevelset
+  USE variables, ONLY : numscalar
+  USE var, ONLY : ta1, tb1
+
+  IMPLICIT NONE
+
+  !! INPUT/OUTPUT
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: drho1, dux1, duy1, duz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime, numscalar) :: dphi1
+
+  !! OUTPUT
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
+
+  !! LOCAL
+  INTEGER :: is, i, j, k
+
+  CALL int_time_momentum(ux1, uy1, uz1, dux1, duy1, duz1)
+
+  IF (ilmn) THEN
+     IF (ilmn_solve_temp) THEN
+        CALL int_time_temperature(rho1, drho1, dphi1, phi1)
+     ELSE
+        CALL int_time_continuity(rho1, drho1)
+     ENDIF
+  ENDIF
+
+  IF (iscalar.NE.0) THEN
+     IF (ilmn.and.ilmn_solve_temp) THEN
+        !! Compute temperature
+        call calc_temp_eos(ta1, rho1(:,:,:,1), phi1, tb1, xsize(1), xsize(2), xsize(3))
+     ENDIF
+
+     DO is = 1, numscalar
+        IF (is.NE.primary_species) THEN
+           CALL int_time(phi1(:,:,:,is), dphi1(:,:,:,:,is))
+
+           DO k = 1, xsize(3)
+              DO j = 1, xsize(2)
+                 DO i = 1, xsize(1)
+                    phi1(i,j,k,is) = max(phi1(i,j,k,is),scalar_lbound(is))
+                    phi1(i,j,k,is) = min(phi1(i,j,k,is),scalar_ubound(is))
+                 ENDDO
+              ENDDO
+           ENDDO
+        ENDIF
+     ENDDO
+
+     IF (ilevelset.gt.0) THEN
+        CALL reinit_ls(phi1(:,:,:,ilevelset))
+     ENDIF
+
+     IF (primary_species.GE.1) THEN
+        phi1(:,:,:,primary_species) = one
+        DO is = 1, numscalar
+           IF ((is.NE.primary_species).AND.massfrac(is)) THEN
+              phi1(:,:,:,primary_species) = phi1(:,:,:,primary_species) - phi1(:,:,:,is)
+           ENDIF
+        ENDDO
+
+        DO k = 1, xsize(3)
+           DO j = 1, xsize(2)
+              DO i = 1, xsize(1)
+                 phi1(i,j,k,primary_species) = max(phi1(i,j,k,primary_species),zero)
+                 phi1(i,j,k,primary_species) = min(phi1(i,j,k,primary_species),one)
+              ENDDO
+           ENDDO
+        ENDDO
+     ENDIF
+
+     IF (ilmn.and.ilmn_solve_temp) THEN
+        !! Compute rho
+        call calc_temp_eos(rho1(:,:,:,1), ta1, phi1, tb1, xsize(1), xsize(2), xsize(3))
+     ENDIF
+  ENDIF
+
+ENDSUBROUTINE intt
+
 subroutine  int_time(var1,dvar1)
 
   USE param
@@ -311,6 +398,95 @@ subroutine int_time_temperature(rho1, drho1, dphi1, phi1)
 
 endsubroutine int_time_temperature
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!  SUBROUTINE: solve_poisson
+!!      AUTHOR: Paul Bartholomew
+!! DESCRIPTION: Takes the intermediate momentum field as input,
+!!              computes div and solves pressure-Poisson equation.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SUBROUTINE solve_poisson(pp3, px1, py1, pz1, rho1, ux1, uy1, uz1, ep1, drho1, divu3)
+
+  USE decomp_2d, ONLY : mytype, xsize, zsize, ph1
+  USE decomp_2d_poisson, ONLY : poisson
+  USE var, ONLY : nzmsize
+  USE var, ONLY : dv3
+  USE param, ONLY : ntime, nrhotime, npress
+  USE param, ONLY : ilmn, ivarcoeff
+
+  IMPLICIT NONE
+
+  !! Inputs
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ep1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime), INTENT(IN) :: rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime), INTENT(IN) :: drho1
+  REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: divu3
+
+  !! Outputs
+  REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress) :: pp3
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: px1, py1, pz1
+
+  !! Locals
+  INTEGER :: nlock, poissiter
+  LOGICAL :: converged
+  REAL(mytype) :: atol, rtol
+
+  nlock = 1 !! Corresponds to computing div(u*)
+  converged = .FALSE.
+  poissiter = 0
+
+  atol = 1.0e-14_mytype !! Absolute tolerance for Poisson solver
+  rtol = 1.0e-14_mytype !! Relative tolerance for Poisson solver
+
+  IF (ilmn.AND.ivarcoeff) THEN
+     !! Variable-coefficient Poisson solver works on div(u), not div(rho u)
+     !! rho u -> u
+     CALL momentum_to_velocity(rho1, ux1, uy1, uz1)
+  ENDIF
+
+  CALL divergence(pp3(:,:,:,1),rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
+  IF (ilmn.AND.ivarcoeff) THEN
+     dv3(:,:,:) = pp3(:,:,:,1)
+  ENDIF
+
+  DO WHILE(.NOT.converged)
+     IF (ivarcoeff) THEN
+
+        !! Test convergence
+        CALL test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
+
+        IF (.NOT.converged) THEN
+           !! Evaluate additional RHS terms
+           CALL calc_varcoeff_rhs(pp3(:,:,:,1), rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, &
+                poissiter)
+        ENDIF
+     ENDIF
+
+     IF (.NOT.converged) THEN
+        CALL poisson(pp3(:,:,:,1))
+
+        !! Need to update pressure gradient here for varcoeff
+        CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
+
+        IF ((.NOT.ilmn).OR.(.NOT.ivarcoeff)) THEN
+           !! Once-through solver
+           !! - Incompressible flow
+           !! - LMN - constant-coefficient solver
+           converged = .TRUE.
+        ENDIF
+     ENDIF
+
+     poissiter = poissiter + 1
+  ENDDO
+
+  IF (ilmn.AND.ivarcoeff) THEN
+     !! Variable-coefficient Poisson solver works on div(u), not div(rho u)
+     !! u -> rho u
+     CALL velocity_to_momentum(rho1, ux1, uy1, uz1)
+  ENDIF
+
+END SUBROUTINE solve_poisson
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!
 !!  SUBROUTINE: lmn_t_to_rho_trans
@@ -537,9 +713,8 @@ subroutine gradp(px1,py1,pz1,pp3)
   USE MPI
   USE var, only: pp1,pgy1,pgz1,di1,pp2,ppi2,pgy2,pgz2,pgzi2,dip2,&
        pgz3,ppi3,dip3,nxmsize,nymsize,nzmsize
-#ifdef FORCES
+
   USE forces, only : ppi1
-#endif
 
   implicit none
 
@@ -578,10 +753,10 @@ subroutine gradp(px1,py1,pz1,pp3)
   call interxpv(pz1,pgz1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
        nxmsize,xsize(1),xsize(2),xsize(3),1)
 
-#ifdef FORCES
-  call interxpv(ppi1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
-       nxmsize,xsize(1),xsize(2),xsize(3),1)
-#endif
+  if (iforces) then
+     call interxpv(ppi1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+          nxmsize,xsize(1),xsize(2),xsize(3),1)
+  endif
 
   !we are in X pencils:
   if (nclx1.eq.2) then
@@ -948,6 +1123,7 @@ SUBROUTINE calc_divu_constraint(divu3, rho1, phi1)
   USE decomp_2d, ONLY : mytype, xsize, ysize, zsize
   USE decomp_2d, ONLY : transpose_x_to_y, transpose_y_to_z
   USE param, ONLY : nrhotime, zero, ilmn, pressure0, imultispecies, massfrac, mol_weight
+  USE param, ONLY : ibirman_eos
   USE param, ONLY : xnu, prandtl
   USE param, ONLY : one
   USE variables
@@ -964,7 +1140,7 @@ SUBROUTINE calc_divu_constraint(divu3, rho1, phi1)
   REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
   REAL(mytype), INTENT(OUT), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
 
-  IF (ilmn) THEN
+  IF (ilmn.and.(.not.ibirman_eos)) THEN
      !!------------------------------------------------------------------------------
      !! X-pencil
 
@@ -1078,6 +1254,7 @@ SUBROUTINE extrapol_drhodt(drhodt1_next, rho1, drho1)
   USE decomp_2d, ONLY : mytype, xsize, nrank
   USE param, ONLY : ntime, nrhotime, itime, itimescheme, itr, dt, gdt, irestart
   USE param, ONLY : half, three, four
+  USE param, ONLY : ibirman_eos
 
   IMPLICIT NONE
 
@@ -1120,7 +1297,50 @@ SUBROUTINE extrapol_drhodt(drhodt1_next, rho1, drho1)
      ENDIF
   ENDIF
 
+  IF (ibirman_eos) THEN
+     CALL birman_drhodt_corr(drhodt1_next, rho1)
+  ENDIF
+
 ENDSUBROUTINE extrapol_drhodt
+
+SUBROUTINE birman_drhodt_corr(drhodt1_next, rho1)
+
+  USE decomp_2d, ONLY : mytype, xsize, ysize, zsize
+  USE decomp_2d, ONLY : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
+  USE variables, ONLY : derxx, deryy, derzz
+  USE param, ONLY : nrhotime
+  USE param, ONLY : xnu, prandtl
+  
+  USE var, ONLY : td1, te1, di1, sx, sfxp, ssxp, swxp
+  USE var, ONLY : rho2, ta2, tb2, di2, sy, sfyp, ssyp, swyp
+  USE var, ONLY : rho3, ta3, di3, sz, sfzp, sszp, swzp
+
+  IMPLICIT NONE
+
+  REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+  REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1_next
+
+  REAL(mytype) :: invpe
+
+  invpe = xnu / prandtl
+  
+  CALL transpose_x_to_y(rho1(:,:,:,1), rho2)
+  CALL transpose_y_to_z(rho2, rho3)
+
+  !! Diffusion term
+  CALL derzz (ta3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+  CALL transpose_z_to_y(ta3, tb2)
+
+  CALL deryy (ta2,rho2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+  ta2(:,:,:) = ta2(:,:,:) + tb2(:,:,:)
+  CALL transpose_y_to_x(ta2, te1)
+  
+  CALL derxx (td1,rho1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+  td1(:,:,:) = td1(:,:,:) + te1(:,:,:)
+
+  drhodt1_next(:,:,:) = drhodt1_next(:,:,:) - invpe * td1(:,:,:)
+
+ENDSUBROUTINE birman_drhodt_corr
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!
