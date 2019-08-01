@@ -17,7 +17,7 @@ module user_sim
   character(len=1),parameter :: NL=char(10) !new line character
 
   PRIVATE ! All functions/subroutines private by default
-  PUBLIC :: init_user, boundary_conditions_user, postprocessing_user
+  PUBLIC :: init_user, boundary_conditions_user, postprocess_user
 
 contains
 
@@ -40,6 +40,15 @@ contains
 
     real(mytype) :: x
     integer :: k,j,i,is
+
+    if (iscalar==1) then
+
+       phi1(:,:,:,:) = zero
+       dphi1(:,:,:,1,:) = phi1(:,:,:,:)
+       do is = 2,ntime
+          dphi1(:,:,:,is,:) = dphi1(:,:,:,is - 1,:)
+       enddo
+    endif
 
     if (iin.eq.0) then !empty domain
 
@@ -150,7 +159,7 @@ contains
 
   end subroutine boundary_conditions_user
 
-  subroutine postprocessing_user(ux1,uy1,uz1,phi1,ep1)
+  subroutine postprocess_user(ux1,uy1,uz1,phi1,ep1)
 
     USE decomp_2d
     USE MPI
@@ -158,6 +167,6 @@ contains
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1, uy1, uz1, ep1
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
 
-  end subroutine postprocessing_user
+  end subroutine postprocess_user
 
 end module user_sim

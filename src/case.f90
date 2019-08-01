@@ -50,7 +50,7 @@ MODULE case
   IMPLICIT NONE
 
   PRIVATE ! All functions/subroutines private by default
-  PUBLIC :: init, boundary_conditions, postprocessing, momentum_forcing, set_fluid_properties
+  PUBLIC :: init, boundary_conditions, postprocess_case, momentum_forcing, set_fluid_properties
 
 CONTAINS
 
@@ -157,8 +157,9 @@ CONTAINS
 
   END SUBROUTINE boundary_conditions
 
-  SUBROUTINE postprocessing(rho,ux,uy,uz,pp,phi,ep)
-    
+  SUBROUTINE postprocess_case(rho,ux,uy,uz,pp,phi,ep)
+
+    USE forces
     USE var, ONLY : nzmsize
     USE param, ONLY : npress
 
@@ -170,38 +171,44 @@ CONTAINS
 
     IF (itype.EQ.itype_user) THEN
 
-       CALL postprocessing_user (ux, uy, uz, phi, ep)
+       CALL postprocess_user (ux, uy, uz, phi, ep)
 
     ELSEIF (itype.EQ.itype_lockexch) THEN
 
-       CALL postprocessing_lockexch(rho, ux, uy, uz, phi, ep)
+       CALL postprocess_lockexch(rho, ux, uy, uz, phi, ep)
 
     ELSEIF (itype.EQ.itype_tgv) THEN
 
-       CALL postprocessing_tgv (ux, uy, uz, phi, ep)
+       CALL postprocess_tgv (ux, uy, uz, phi, ep)
 
     ELSEIF (itype.EQ.itype_channel) THEN
 
-       CALL postprocessing_channel (ux, uy, uz, pp, phi, ep)
+       CALL postprocess_channel (ux, uy, uz, pp, phi, ep)
 
     ELSEIF (itype.EQ.itype_hill) THEN
 
-       CALL postprocessing_hill(ux, uy, uz, phi, ep)
+       CALL postprocess_hill(ux, uy, uz, phi, ep)
 
     ELSEIF (itype.EQ.itype_cyl) THEN
 
-       CALL postprocessing_cyl (ux, uy, uz)
+       CALL postprocess_cyl (ux, uy, uz)
 
     ELSEIF (itype.EQ.itype_dbg) THEN
 
-       CALL postprocessing_dbg (ux, uy, uz, phi, ep)
+       CALL postprocess_dbg (ux, uy, uz, phi, ep)
 
     ELSEIF (itype.EQ.itype_jet) THEN
 
-       CALL postprocessing_jet (ux, uy, uz, phi, ep)
+       CALL postprocess_jet (ux, uy, uz, phi, ep)
 
     ENDIF
-  END SUBROUTINE postprocessing
+
+     if(iforces) then
+        call force(ux,uy,ep)
+        call restart_forces(1)
+     endif
+
+  END SUBROUTINE postprocess_case
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!

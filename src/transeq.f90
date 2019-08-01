@@ -285,22 +285,17 @@ CONTAINS
     tb1 = tb1 + te1
     tc1 = tc1 + tf1
 
-    ! di1 =  zero
-    ! do is = 1, numscalar
-    !    di1 = di1  + phi1(:,:,:,is)*ri(is) !Mod. by Ricardo
-    ! enddo
-
     !FINAL SUM: DIFF TERMS + CONV TERMS
-    dux1(:,:,:,1) = mu1(:,:,:) * xnu*ta1(:,:,:) - tg1(:,:,:) ! + di1(:,:,:)*anglex  !+x
-    duy1(:,:,:,1) = mu1(:,:,:) * xnu*tb1(:,:,:) - th1(:,:,:) ! - di1(:,:,:)*angley  !+y
-    duz1(:,:,:,1) = mu1(:,:,:) * xnu*tc1(:,:,:) - ti1(:,:,:) ! !+- di1       !+z
+    dux1(:,:,:,1) = mu1(:,:,:) * xnu*ta1(:,:,:) - tg1(:,:,:)
+    duy1(:,:,:,1) = mu1(:,:,:) * xnu*tb1(:,:,:) - th1(:,:,:)
+    duz1(:,:,:,1) = mu1(:,:,:) * xnu*tc1(:,:,:) - ti1(:,:,:)
 
     if (ilmn) then
        call momentum_full_viscstress_tensor(dux1(:,:,:,1), duy1(:,:,:,1), duz1(:,:,:,1), divu3, mu1)
     endif
 
     ! If LES modelling is enabled, add the SGS stresses
-    if (ilesmod.ne.0.and.jles.le.3.) then
+    if (ilesmod.ne.0.and.jles.le.2.and.jles.gt.0) then
        ! Wall model for LES
        if (iwall.eq.1) then 
           call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,ep1,1)
@@ -800,9 +795,9 @@ CONTAINS
     
     call transpose_y_to_x(ta2, ta1)
     
-    dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) + ta1(:,:,:)
+    dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) - ta1(:,:,:)
     CALL derx (ta1, phi1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
-    dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) + uset(is) * gravx * ta1(:,:,:)
+    dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) - uset(is) * gravx * ta1(:,:,:)
     
   endsubroutine scalar_settling
 
