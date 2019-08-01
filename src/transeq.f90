@@ -736,7 +736,7 @@ CONTAINS
           !! For mass fractions enforce primary species Y_p = 1 - sum_s Y_s
           !! So don't solve a transport equation
           
-          if (is.ne.ilevelset) then
+          if (is.eq.ilevelset) then
              ihyperbolic = .TRUE.
           else
              ihyperbolic = .FALSE.
