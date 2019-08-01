@@ -1,10 +1,14 @@
-PROGRAM incompact3d
+program incompact3d
 
-  USE var
-  USE case
-  USE forces
+  use var
+  use case
 
-  USE transeq, ONLY : calculate_transeq_rhs
+  use transeq, only : calculate_transeq_rhs
+  use time_integrators, only : intt
+  use navier, only : velocity_to_momentum, momentum_to_velocity, pre_correc, &
+       calc_divu_constraint, solve_poisson, corpg
+  use tools, only : test_flow, restart, simu_stats
+  use visu, only : postprocessing
 
   implicit none
 
@@ -14,62 +18,40 @@ PROGRAM incompact3d
      t=itime*dt
      call simu_stats(2)
 
-     call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
-
      do itr=1,iadvance_time
 
-        call set_fluid_properties(rho1, mu1)
+        call set_fluid_properties(rho1,mu1)
         call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
-        CALL calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+        call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
 
         !! XXX N.B. from this point, X-pencil velocity arrays contain momentum.
-        call velocity_to_momentum(rho1, ux1, uy1, uz1)
+        call velocity_to_momentum(rho1,ux1,uy1,uz1)
 
         call intt(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
         call pre_correc(ux1,uy1,uz1,ep1)
 
-        if (iibm==1) then !solid body old school
-           call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,1)
-           call body(ux1,uy1,uz1,ep1,1)
-           call corgp_IBM(ux1,uy1,uz1,px1,py1,pz1,2)
-        endif
-
-        call calc_divu_constraint(divu3, rho1, phi1)
+        call calc_divu_constraint(divu3,rho1,phi1)
         call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
         call corpg(ux1,uy1,uz1,px1,py1,pz1)
 
         call momentum_to_velocity(rho1,ux1,uy1,uz1)
         !! XXX N.B. from this point, X-pencil velocity arrays contain velocity.
 
-        if (mod(itime,10)==0) then
-           call divergence(dv3,rho1,ux1,uy1,uz1,ep1,drho1,divu3,2)
-           call test_speed_min_max(ux1,uy1,uz1)
-           if (iscalar==1) call test_scalar_min_max(phi1)
-        endif
+        call test_flow(rho1,ux1,uy1,uz1,phi1,ep1,drho1,divu3)
 
      enddo !! End sub timesteps
 
-     if(iforces) then
-        call force(ux1,uy1,ep1,ta1,tb1,tc1,td1,di1,&
-             ux2,uy2,ta2,tb2,tc2,td2,di2)
-        if (mod(itime,icheckpoint).eq.0) then
-           call restart_forces(1)
-        endif
-     endif
-
-     if (mod(itime,icheckpoint).eq.0) then
-        call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,1)
-     endif
+     call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,1)
 
      call simu_stats(3)
 
-     CALL visu(rho1,ux1,uy1,uz1,pp3(:,:,:,1),phi1,itime)
+     call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
   enddo !! End time loop
 
   call finalise_incompact3d()
 
-END PROGRAM incompact3d
+end program incompact3d
 
 subroutine init_incompact3d()
 
@@ -80,6 +62,12 @@ subroutine init_incompact3d()
   use forces
   
   use var
+
+  use navier, only : calc_divu_constraint
+  use tools, only : test_speed_min_max, test_scalar_min_max, &
+       restart, &
+       simu_stats
+  use visu, only : write_snapshot
   
   use param, only : ilesmod, jles
   use param, only : irestart
@@ -141,13 +129,12 @@ subroutine init_incompact3d()
   call decomp_info_init(nxm,nym,nzm,phG)
 
   if (ilesmod.ne.0) then
-     call filter(0.45_mytype)
-     if (jles.le.3)  call init_explicit_les()
+     if (jles.gt.0)  call init_explicit_les()
   endif
 
   if (irestart==0) then
      call init(rho1,ux1,uy1,uz1,ep1,phi1,drho1,dux1,duy1,duz1,dphi1,pp3,px1,py1,pz1)
-     CALL visu(rho1, ux1, uy1, uz1, pp3(:,:,:,1),phi1, 0)
+     CALL write_snapshot(rho1, ux1, uy1, uz1, pp3(:,:,:,1),phi1, ep1, 0)
   else
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,0)
   endif
@@ -181,6 +168,8 @@ subroutine finalise_incompact3d()
   use MPI 
   use decomp_2d
 
+  use tools, only : simu_stats
+
   implicit none
 
   integer :: ierr
@@ -193,3 +182,4 @@ subroutine finalise_incompact3d()
   CALL MPI_FINALIZE(ierr)
 
 endsubroutine finalise_incompact3d
+
