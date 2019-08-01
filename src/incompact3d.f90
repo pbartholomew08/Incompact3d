@@ -69,7 +69,7 @@ subroutine init_incompact3d()
   use tools, only : test_speed_min_max, test_scalar_min_max, &
        restart, &
        simu_stats
-  use visu, only : write_snapshot
+  use visu, only : postprocessing
   
   use param, only : ilesmod, jles
   use param, only : irestart
@@ -135,9 +135,10 @@ subroutine init_incompact3d()
   endif
 
   if (irestart==0) then
+     itime = 0
      call init(rho1,ux1,uy1,uz1,ep1,phi1,drho1,dux1,duy1,duz1,dphi1,pp3,px1,py1,pz1)
      call update_fluid_properties(rho1, phi1)
-     CALL write_snapshot(rho1, ux1, uy1, uz1, pp3(:,:,:,1),phi1, ep1, 0)
+     call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
   else
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,0)
   endif
