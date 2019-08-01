@@ -1108,14 +1108,14 @@ subroutine init_w_ls (wx1, wy2, wz3, ls1, ls2, ls3)
   
 endsubroutine init_w_ls
 
-subroutine update_fluid_properties(rho1, phi1)
+subroutine update_fluid_properties(rho1, mu1, phi1)
 
   use decomp_2d, only : mytype, xsize
   use var, only : one, two, three, pi, five
   use var, only : dx, dy, dz
   use var, only : numscalar
   use param, only : nrhotime, ilevelset
-  use param, only : dens1, dens2
+  use param, only : dens1, dens2, visc1, visc2
   
   implicit none
 
@@ -1124,6 +1124,7 @@ subroutine update_fluid_properties(rho1, phi1)
 
   !! InOut
   real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+  real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: mu1
 
   !! Local
   integer :: i, j, k
@@ -1140,14 +1141,19 @@ subroutine update_fluid_properties(rho1, phi1)
               if (phi1(i, j, k, ilevelset).gt.alpha) then
                  !! Fluid 1
                  rho1(i, j, k, 1) = dens1
+                 mu1(i, j, k) = visc1
               else if (phi1(i, j, k, ilevelset).lt.-alpha) then
                  !! Fluid 2
                  rho1(i, j, k, 1) = dens2
+                 mu1(i, j, k) = visc2
               else
                  !! Interface: smooth properties
                  rho1(i, j, k, 1) = ((dens1 + dens2) &
                       + (dens1 - dens2) * sin(pi * phi1(i, j, k, ilevelset) / (two * alpha))) &
                       / (two * dens1)
+                 mu1(i, j, k) = ((visc1 + visc2) &
+                      + (visc1 - visc2) * sin(pi * phi1(i, j, k, ilevelset) / (two * alpha))) &
+                      / (two * visc1)
               endif
            enddo
         enddo

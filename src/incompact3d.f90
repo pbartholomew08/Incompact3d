@@ -30,7 +30,7 @@ program incompact3d
         call intt(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
         call pre_correc(ux1,uy1,uz1,ep1)
 
-        call update_fluid_properties(rho1, phi1)
+        call update_fluid_properties(rho1, mu1, phi1)
 
         call calc_divu_constraint(divu3,rho1,phi1)
         call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
@@ -137,7 +137,7 @@ subroutine init_incompact3d()
   if (irestart==0) then
      itime = 0
      call init(rho1,ux1,uy1,uz1,ep1,phi1,drho1,dux1,duy1,duz1,dphi1,pp3,px1,py1,pz1)
-     call update_fluid_properties(rho1, phi1)
+     call update_fluid_properties(rho1, mu1, phi1)
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
   else
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,0)

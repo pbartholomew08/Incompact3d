@@ -235,6 +235,7 @@ module param
   real(mytype) :: dt,re,xnu,init_noise,inflow_noise,u1,u2,angle,anglex,angley
   real(mytype) :: wrotation,ro
   real(mytype) :: dens1, dens2
+  real(mytype) :: visc1, visc2
 
   !! Numerics control
   integer :: ifirstder,isecondder,ipinter

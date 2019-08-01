@@ -62,6 +62,8 @@ subroutine parameter(input_i3d)
 
   NAMELIST /BasicParam/ p_row, p_col, nx, ny, nz, istret, beta, xlx, yly, zlz, &
        itype, iin, re, u1, u2, init_noise, inflow_noise, &
+       dens1, dens2, &
+       visc1, visc2, &
        dt, ifirst, ilast, &
        numscalar, iibm, ilmn, &
        ilesmod, iscalar, &
@@ -79,7 +81,7 @@ subroutine parameter(input_i3d)
 
   NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf,nvol
   NAMELIST /ForceCVs/ xld, xrd, yld, yud
-  NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, &
+  NAMELIST /LMN/ prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, &
        massfrac, mol_weight, imultispecies, primary_species, &
        Fr, ibirman_eos
   NAMELIST /CASE/ tgv_twod, pfront
@@ -428,6 +430,11 @@ subroutine parameter_defaults()
   irestart = 0
   datapath = './data/'
   fpi2 = (48._mytype / seven) / (PI**2)
+  
+  dens1 = one
+  dens2 = one
+  visc1 = one
+  visc2 = one
 
   !! IBM stuff
   nraf = 0
@@ -451,8 +458,6 @@ subroutine parameter_defaults()
   ilmn_bound = .TRUE.
   pressure0 = one
   prandtl = one
-  dens1 = one
-  dens2 = one
   ivarcoeff = .FALSE.
   npress = 1 !! By default people only need one pressure field
   ilmn_solve_temp = .FALSE.
