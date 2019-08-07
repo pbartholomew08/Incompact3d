@@ -982,8 +982,8 @@ subroutine reinit_ls(levelset1)
                          + eps**2)
 
                     ! !! MCSHERRY2017
-                    ! S1(i, j, k) = levelset1(i, j, k) / sqrt(levelset1(i, j, k)**2 &
-                    !      + (mag_grad_ls1(i, j, k) * deltax)**2 &
+                    ! S1(i, j, k) = levelset1(i, j, k) / (sqrt(levelset1(i, j, k)**2 &
+                    !      + (mag_grad_ls1(i, j, k) * deltax)**2) &
                     !      + macheps)
                  else
                     S1(i, j, k) = zero
