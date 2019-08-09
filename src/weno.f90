@@ -139,12 +139,12 @@ contains
              q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
              q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
              q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-             is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                  + (q1 - four * q2 + three * q3)**2 / four
-             is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                  + (q2 - q4)**2 / four
-             is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                  + (three * q3 - four * q4 + q5)**2 / four
+             is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                  + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+             is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                  + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+             is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                  + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
              a1 = one / (e + is1)**2 / ten
              a2 = six / (e + is2)**2 / ten
              a3 = three / (e + is3)**2 / ten
@@ -198,12 +198,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -243,12 +243,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -288,12 +288,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -333,12 +333,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -378,12 +378,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -423,12 +423,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -516,12 +516,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -561,12 +561,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -606,12 +606,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -651,12 +651,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -696,12 +696,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -741,12 +741,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -837,12 +837,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -882,12 +882,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -927,12 +927,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -972,12 +972,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -1017,12 +1017,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
@@ -1062,12 +1062,12 @@ contains
                    q3 = dsign * (phi(i, j, k) - phi(im1, jm1, km1)) / deltax
                    q4 = dsign * (phi(ip1, jp1, kp1) - phi(i, j, k)) / deltax
                    q5 = dsign * (phi(ip2, jp2, kp2) - phi(ip1, jp1, kp1)) / deltax
-                   is1 = (thirteen / twelve) * (q1 - two * q2 + q3)**2 &
-                        + (q1 - four * q2 + three * q3)**2 / four
-                   is2 = (thirteen / twelve) * (q2 - two * q3 + q4)**2 &
-                        + (q2 - q4)**2 / four
-                   is3 = (thirteen / twelve) * (q3 - two * q4 + q5)**2 &
-                        + (three * q3 - four * q4 + q5)**2 / four
+                   is1 = (thirteen / twelve) * (phi(im2,jm2,km2) - two * phi(im1,jm1,km1) + phi(i,j,k))**2 &
+                        + (phi(im2,jm2,km2) - four * phi(im1,jm1,km1) + three * phi(i,j,k))**2 / four
+                   is2 = (thirteen / twelve) * (phi(im1,jm1,km1) - two * phi(i,j,k) + phi(ip1,jp1,kp1))**2 &
+                        + (phi(im1,jm1,km1) - phi(ip1,jp1,kp1))**2 / four
+                   is3 = (thirteen / twelve) * (phi(i,j,k) - two * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 &
+                        + (three * phi(i,j,k) - four * phi(ip1,jp1,kp1) + phi(ip2,jp2,kp2))**2 / four
                    a1 = one / (e + is1)**2 / ten
                    a2 = six / (e + is2)**2 / ten
                    a3 = three / (e + is3)**2 / ten
