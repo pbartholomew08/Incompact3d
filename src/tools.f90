@@ -898,7 +898,9 @@ ENDSUBROUTINE calc_mweight
 !!------------------------------------------------------------------------
 subroutine reinit_ls(levelset1)
 
-  use decomp_2d, only : mytype, xsize, ysize, zsize, nrank
+  use MPI
+  
+  use decomp_2d, only : mytype, real_type, xsize, ysize, zsize, nrank
   use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
   use param, only : zero, half, one, two, three, five, ten
   use param, only : dt, dx, dy, dz
@@ -928,18 +930,19 @@ subroutine reinit_ls(levelset1)
   
   integer :: iter
   logical :: converged
+  integer :: ierr
 
-  real(mytype) :: dtau
-  real(mytype) :: delta_ls
+  real(mytype) :: dtau, global_dtau
+  real(mytype) :: delta_ls, global_delta_ls
   real(mytype) :: deltax
-  real(mytype) :: ctr
+  real(mytype) :: ctr, global_ctr
   real(mytype) :: alpha
   
   real(mytype) :: eps, macheps
 
   deltax = (dx * dy * dz)**(one / three)
   eps = deltax !! SUSSMAN1994
-  alpha = five * deltax
+  alpha = two * deltax
 
   macheps = epsilon(one)
 
@@ -977,14 +980,14 @@ subroutine reinit_ls(levelset1)
            do j = 1, xsize(2)
               do i = 1, xsize(1)
                  if (abs(levelset1(i, j, k)) < alpha) then
-                    !! SUSSMAN1994
-                    S1(i, j, k) = levelset1(i, j, k) / sqrt(levelset1(i, j, k)**2 &
-                         + eps**2)
+                    ! !! SUSSMAN1994
+                    ! S1(i, j, k) = levelset1(i, j, k) / sqrt(levelset1(i, j, k)**2 &
+                    !      + eps**2)
 
-                    ! !! MCSHERRY2017
-                    ! S1(i, j, k) = levelset1(i, j, k) / (sqrt(levelset1(i, j, k)**2 &
-                    !      + (mag_grad_ls1(i, j, k) * deltax)**2) &
-                    !      + macheps)
+                    !! MCSHERRY2017
+                    S1(i, j, k) = levelset1(i, j, k) &
+                         / sqrt(levelset1(i, j, k)**2 + (mag_grad_ls1(i, j, k) * eps)**2 &
+                         + macheps)
                  else
                     S1(i, j, k) = zero
                  endif
@@ -1003,6 +1006,8 @@ subroutine reinit_ls(levelset1)
           maxval(wy1), abs(minval(wy1)), &
           maxval(wz1), abs(minval(wz1)), &
           one)
+     call MPI_ALLREDUCE(dtau,global_dtau,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
+     dtau = global_dtau
 
      !! Update level-set
      levelset1_old(:,:,:) = levelset1(:,:,:)
@@ -1029,7 +1034,9 @@ subroutine reinit_ls(levelset1)
            enddo
         enddo
      enddo
-     if (delta_ls < ctr * dtau * deltax**2) then
+     call MPI_ALLREDUCE(delta_ls,global_delta_ls,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
+     call MPI_ALLREDUCE(ctr,global_ctr,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
+     if (global_delta_ls < global_ctr * dtau * deltax**2) then
         converged = .true.
      endif
 
@@ -1225,7 +1232,7 @@ contains
 
           print *,'Phi'//char(48+is)//' min max=', real(phimin1,4), real(phimax1,4)
 
-          if (abs(phimax1).ge.10.) then !if phi control turned off
+          if ((phimax1.ge.scalar_ubound(is)).or.(phimin1.le.scalar_lbound(is))) then !if phi control turned off
              stop 'Scalar diverged! FATALITY!'
           endif
        endif
