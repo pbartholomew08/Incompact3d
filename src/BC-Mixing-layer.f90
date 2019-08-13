@@ -19,7 +19,7 @@ module mixlayer
 
 contains
 
-  subroutine init_mixlayer (rho1,ux1,uy1,uz1,drho1,dux1,duy1,duz1)
+  subroutine init_mixlayer (rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
 
     USE decomp_2d, ONLY : mytype, xsize
     USE param, ONLY : u1, u2, dens1, dens2
@@ -33,8 +33,10 @@ contains
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: drho1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime,numscalar) :: dphi1
 
-    integer :: i, j, k, is
+    integer :: i, j, k, is, it
     real(mytype) :: x, y, z
 
     real(mytype) :: M, rspech, heatcap
@@ -103,6 +105,16 @@ contains
           enddo
        enddo
 
+       if (ilevelset.gt.0) then
+          do j = 1, xsize(2)
+             y=real((j+xstart(2)-2),mytype)*dy - half * yly
+
+             phi1(:,j,:,ilevelset) = -y
+
+          enddo
+          call reinit_ls(phi1(:,:,:,ilevelset))
+       endif
+
        if (.not.ilmn) then
           rho1(:,:,:,:) = one
        endif
@@ -125,6 +137,12 @@ contains
 
     do is = 2, nrhotime
        rho1(:,:,:,is) = rho1(:,:,:,is - 1)
+    enddo
+
+    do is=1,numscalar
+       do it = 1,ntime
+          dphi1(:,:,:,it,is) = phi1(:,:,:,is)
+       enddo
     enddo
 
 #ifdef DEBG
