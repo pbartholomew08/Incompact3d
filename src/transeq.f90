@@ -393,7 +393,7 @@ CONTAINS
     if (.not.ifreesurface) then
        call derx (td1,mu1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     else
-       call weno5(td1, mu1, ux1, 0, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
+       call weno5(td1, mu1, ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
     endif
     ta1(:,:,:) = two * ta1(:,:,:) - (two * one_third) * tg1(:,:,:)
 
@@ -415,7 +415,7 @@ CONTAINS
     if (.not.ifreesurface) then
        call dery (th2,ti2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
     else
-       call weno5(th2, ti2, uy2, 1, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
+       call weno5(th2, ti2, uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
     endif
 
     ta2(:,:,:) = ta2(:,:,:) + th2(:,:,:) * td2(:,:,:)
@@ -439,7 +439,7 @@ CONTAINS
     if (.not.ifreesurface) then
        call derz (th3,ti3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
     else
-       call weno5(th3, ti3, uz3, 2, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
+       call weno5(th3, ti3, uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
     endif
 
     ta3(:,:,:) = ta3(:,:,:) + th3(:,:,:) * td3(:,:,:)
@@ -640,7 +640,7 @@ CONTAINS
        tb1(:,:,:) = rho1(:,:,:,1) * ux1(:,:,:) * tb1(:,:,:)
        call derxxS (ta1,phi1(:,:,:),di1,sx,sfxpS,ssxpS,swxpS,xsize(1),xsize(2),xsize(3),1)
     else
-       call weno5(tb1, phi1(:,:,:), ux1, 0, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
+       call weno5(tb1, phi1(:,:,:), ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
        tb1(:,:,:) = ux1(:,:,:) * tb1(:,:,:)
        ta1(:,:,:) = zero
     endif
@@ -662,7 +662,7 @@ CONTAINS
           enddo
        endif
     else
-       call weno5(tb2, td2(:,:,:), uy2, 1, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
+       call weno5(tb2, td2(:,:,:), uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
        tb2(:,:,:) = uy2(:,:,:) * tb2(:,:,:)
        ta2(:,:,:) = zero
     endif
@@ -674,7 +674,7 @@ CONTAINS
        tb3(:,:,:) = rho3(:,:,:) * uz3(:,:,:) * tb3(:,:,:)
        call derzzS (ta3,td3(:,:,:),di3,sz,sfzpS,sszpS,swzpS,zsize(1),zsize(2),zsize(3),1)
     else
-       call weno5(tb3, td3(:,:,:), uz3, 2, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
+       call weno5(tb3, td3(:,:,:), uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
        tb3(:,:,:) = uz3(:,:,:) * tb3(:,:,:)
        ta3(:,:,:) = zero
     endif
@@ -692,10 +692,6 @@ CONTAINS
     !X PENCILS ADD TERMS
     ta1 = ta1+tc1 !SECOND DERIVATIVE
     tb1 = tb1+td1 !FIRST DERIVATIVE
-
-    if (nrank.eq.0) then
-       print *, "WARNING: disabled scalar diffusion!"
-    endif
     
     dphi1(:,:,:,1) = (xnu/schmidt)*ta1(:,:,:) - tb1(:,:,:)
 
