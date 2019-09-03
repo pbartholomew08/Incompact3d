@@ -1,13 +1,10 @@
 #=======================================================================
-# Makefile for Incompact3D modified by Ricardo
+# Makefile for Xcompact3D
 #=======================================================================
 # Choose pre-processing options
 #   -DDOUBLE_PREC - use double-precision
 #   -DSAVE_SINGLE - Save 3D data in single-precision
-#   -DDEBG        - debuggin incompact3d.f90
-#   -DVISU        - enable visu.f90
-#   -DVISUEXTRA   - enable extra options visu.f90
-#   -DFORCES      - enable lift and drag computing over solid body
+#   -DDEBG        - debuggin xcompact3d.f90
 # generate a Git version string
 GIT_VERSION := $(shell git describe --tag --long --always)
 
@@ -24,7 +21,7 @@ DEFS = -DDOUBLE_PREC -DVERSION=\"$(GIT_VERSION)\"
 LCL = local# local,lad,sdu,archer
 IVER = 17# 15,16,17,18
 CMP = gcc# intel,gcc
-FFT = generic# mkl,generic,fftw3
+FFT = generic# generic,fftw3
 
 #######Minimum defs###########
 ifeq ($(FLOW_TYPE),Channel-flow)
@@ -70,39 +67,13 @@ SRCDECOMP = $(DECOMPDIR)/decomp_2d.f90 $(DECOMPDIR)/glassman.f90 $(DECOMPDIR)/ff
 OBJDECOMP = $(SRCDECOMP:%.f90=%.o)
 SRC = $(SRCDIR)/module_param.f90 $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/weno.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/freesurface.f90 $(SRCDIR)/*.f90
 OBJ = $(SRC:%.f90=%.o)
-SRC = $(SRCDIR)/module_param.f90 $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/weno.f90 $(SRCDIR)/freesurface.f90 $(SRCDIR)/forces.f90 $(SRCDIR)/BC-User.f90 $(SRCDIR)/BC-TGV.f90 $(SRCDIR)/BC-Channel-flow.f90 $(SRCDIR)/BC-Periodic-hill.f90 $(SRCDIR)/BC-Cylinder.f90 $(SRCDIR)/BC-Mixing-layer.f90 $(SRCDIR)/BC-Jet.f90 $(SRCDIR)/BC-Lock-exchange.f90 $(SRCDIR)/BC-dbg-schemes.f90 $(SRCDIR)/case.f90 $(SRCDIR)/transeq.f90 $(SRCDIR)/navier.f90 $(SRCDIR)/time_integrators.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/filters.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/tools.f90 $(SRCDIR)/statistics.f90 $(SRCDIR)/visu.f90 $(SRCDIR)/paraview.f90 $(SRCDIR)/genepsi3d.f90 $(SRCDIR)/les_models.f90 $(SRCDIR)/incompact3d.f90
+SRC = $(SRCDIR)/module_param.f90 $(SRCDIR)/variables.f90 $(SRCDIR)/poisson.f90 $(SRCDIR)/schemes.f90 $(SRCDIR)/weno.f90 $(SRCDIR)/freesurface.f90 $(SRCDIR)/forces.f90 $(SRCDIR)/BC-User.f90 $(SRCDIR)/BC-TGV.f90 $(SRCDIR)/BC-Channel-flow.f90 $(SRCDIR)/BC-Periodic-hill.f90 $(SRCDIR)/BC-Cylinder.f90 $(SRCDIR)/BC-Mixing-layer.f90 $(SRCDIR)/BC-Jet.f90 $(SRCDIR)/BC-Lock-exchange.f90 $(SRCDIR)/BC-dbg-schemes.f90 $(SRCDIR)/case.f90 $(SRCDIR)/les_models.f90 $(SRCDIR)/transeq.f90 $(SRCDIR)/navier.f90 $(SRCDIR)/time_integrators.f90 $(SRCDIR)/derive.f90 $(SRCDIR)/filters.f90 $(SRCDIR)/parameters.f90 $(SRCDIR)/tools.f90 $(SRCDIR)/statistics.f90 $(SRCDIR)/visu.f90 $(SRCDIR)/paraview.f90 $(SRCDIR)/genepsi3d.f90 $(SRCDIR)/xcompact3d.f90
 
 ### List of files for the post-processing code
 PSRC = decomp_2d.f90 module_param.f90 io.f90 variables.f90 schemes.f90 derive.f90 BC-$(FLOW_TYPE).f90 parameters.f90 tools.f90 visu.f90 paraview.f90 post.f90
 
-######MKL INSTALL PATH######
-ifeq ($(LCL),local)
-  MKLROOT=/opt/intel/mkl
-
-else ifeq ($(LCL),lad)
-ifeq ($(IVER),17)
-  MKLROOT=/usr/local/Intel_Cluster_Studio_XE_2017/parallel_studio_xe_2017/mkl
-else ifeq ($(IVER),16)
-  MKLROOT=/usr/local/Intel_Cluster_Studio_XE_2016/parallel_studio_xe_2016_update3/mkl
-else ifeq ($(IVER),13)
-  MKLROOT=/usr/local/Intel_Cluster_Studio_XE_2013/parallel_studio_xe_2013/l_ics_2013.0.028/mkl
-endif
-else ifeq ($(LCL),sdu)
-ifeq ($(IVER),17)
-  MKLROOT=/opt/intel/parallel_studio_xe_2017/mkl
-else ifeq ($(IVER),16)
-  MKLROOT=/opt/intel/parallel_studio_xe_2016/mkl
-endif
-endif
-
 #######FFT settings##########
-ifeq ($(FFT),mkl)
-  SRC := mkl_dfti.f90 $(SRC)
-  LIBFFT=-Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_sequential.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread
-  INC=-I$(MKLROOT)/include
-  MKL_MOD=mkl_mod
-  MKL_DFTI=mkl_dfti
-else ifeq ($(FFT),fftw3)
+ifeq ($(FFT),fftw3)
   #FFTW3_PATH=/usr
   #FFTW3_PATH=/usr/lib64
   FFTW3_PATH=/usr/local/Cellar/fftw/3.3.7_1
@@ -125,9 +96,9 @@ LINKOPT = $(FFLAGS)
 #-----------------------------------------------------------------------
 # Normally no need to change anything below
 
-all: incompact3d
+all: xcompact3d
 
-incompact3d : $(OBJDECOMP) $(OBJ)
+xcompact3d : $(OBJDECOMP) $(OBJ)
 	$(FC) -o $@ $(LINKOPT) $(OBJDECOMP) $(OBJ) $(LIBFFT)
 
 $(OBJDECOMP):$(DECOMPDIR)%.o : $(DECOMPDIR)%.f90
@@ -158,7 +129,7 @@ visualize :
 clean:
 	rm -f $(DECOMPDIR)/*.o $(DECOMPDIR)/*.mod
 	rm -f $(SRCDIR)/*.o $(SRCDIR)/*.mod
-	rm -f *.o *.mod incompact3d post
+	rm -f *.o *.mod xcompact3d post
 
 .PHONY: cleanall
 cleanall: clean
