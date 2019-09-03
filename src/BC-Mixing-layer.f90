@@ -112,7 +112,6 @@ contains
              phi1(:,j,:,ilevelset) = -y
 
           enddo
-          call reinit_ls(phi1(:,:,:,ilevelset))
        endif
 
        if (.not.ilmn) then

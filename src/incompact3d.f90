@@ -9,6 +9,7 @@ program incompact3d
        calc_divu_constraint, solve_poisson, corpg
   use tools, only : test_flow, restart, simu_stats
   use visu, only : postprocessing
+  use freesurface, only : update_fluid_properties
 
   implicit none
 
@@ -77,6 +78,7 @@ subroutine init_incompact3d()
   use variables, only : nx, ny, nz, nxm, nym, nzm
   use variables, only : p_row, p_col
   use variables, only : nstat, nvisu, nprobe
+  use freesurface, only : update_fluid_properties
 
   implicit none
 

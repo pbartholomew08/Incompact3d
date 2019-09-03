@@ -153,6 +153,7 @@ contains
     use param, only : scalar_lbound, scalar_ubound
     USE variables, ONLY : numscalar
     USE var, ONLY : ta1, tb1
+    USE freesurface, ONLY : reinit_ls
 
     IMPLICIT NONE
 
@@ -198,7 +199,7 @@ contains
              ENDDO
 
              IF (is.EQ.ilevelset) THEN
-                CALL reinit_ls(phi1(:,:,:,is))
+                CALL reinit_ls(phi1(:,:,:,is), 2)
              ENDIF
           ENDIF
        ENDDO

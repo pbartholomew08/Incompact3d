@@ -113,9 +113,6 @@ contains
        enddo
 
        if (iscalar==1) then
-          !! Reinitialise to smooth level-set
-          call reinit_ls(phi1(:,:,:,1))
-
           dphi1(:,:,:,1,:) = phi1(:,:,:,:)
           do is = 2,ntime
              dphi1(:,:,:,is,:) = dphi1(:,:,:,is - 1,:)
