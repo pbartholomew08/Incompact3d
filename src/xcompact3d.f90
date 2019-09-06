@@ -4,9 +4,9 @@ program xcompact3d
   use case
 
   use transeq, only : calculate_transeq_rhs
-  use time_integrators, only : intt
+  use time_integrators, only : int_time
   use navier, only : velocity_to_momentum, momentum_to_velocity, pre_correc, &
-       calc_divu_constraint, solve_poisson, corpg
+       calc_divu_constraint, solve_poisson, cor_vel
   use tools, only : test_flow, restart, simu_stats
   use visu, only : postprocessing
   use freesurface, only : update_fluid_properties
@@ -28,14 +28,14 @@ program xcompact3d
         !! XXX N.B. from this point, X-pencil velocity arrays contain momentum.
         call velocity_to_momentum(rho1,ux1,uy1,uz1)
 
-        call intt(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
+        call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
         call pre_correc(ux1,uy1,uz1,ep1)
 
         call update_fluid_properties(rho1, mu1, phi1)
 
         call calc_divu_constraint(divu3,rho1,phi1)
         call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
-        call corpg(rho1,ux1,uy1,uz1,px1,py1,pz1)
+        call cor_vel(rho1,ux1,uy1,uz1,px1,py1,pz1)
 
         call momentum_to_velocity(rho1,ux1,uy1,uz1)
         !! XXX N.B. from this point, X-pencil velocity arrays contain velocity.
