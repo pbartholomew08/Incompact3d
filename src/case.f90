@@ -57,7 +57,8 @@ CONTAINS
   SUBROUTINE init (rho1, ux1, uy1, uz1, ep1, phi1, drho1, dux1, duy1, duz1, dphi1, &
        pp3, px1, py1, pz1)
 
-    USE freesurface, ONLY : reinit_ls
+    USE freesurface, ONLY : reinit_ls, update_fluid_properties
+    USE var, ONLY : mu1
 
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
@@ -120,6 +121,7 @@ CONTAINS
     if (ilevelset.gt.0) then
        !! Ensure levelset is valid in region of interface
        call reinit_ls(phi1(:,:,:,ilevelset), 5)
+       call update_fluid_properties(rho1, mu1, phi1)
     endif
     
     !! Setup old arrays
