@@ -56,12 +56,19 @@ contains
        ux1=zero; uy1=zero; uz1=zero
 
        !! Compute flow for zero convective velocity
-       rhomin = MIN(dens1, dens2)
-       rhomax = MAX(dens1, dens2)
+       if (ilmn) then
+          rhomin = MIN(dens1, dens2)
+          rhomax = MAX(dens1, dens2)
+          u1 = SQRT(dens2 / dens1) / (SQRT(dens2 / dens1) + one)
+          u2 = -SQRT(dens1 / dens2) / (one + SQRT(dens1 / dens2))
+       else
+          rhomin = one
+          rhomax = one
+          u1 = half
+          u2 = -half
+       endif
        T1 = pressure0 / dens1
        T2 = pressure0 / dens2
-       u1 = SQRT(dens2 / dens1) / (SQRT(dens2 / dens1) + one)
-       u2 = -SQRT(dens1 / dens2) / (one + SQRT(dens1 / dens2))
        M = 0.2_mytype
        rspech = 1.4_mytype
        heatcap = (one / (T2 * (rspech - one))) * ((u1 - u2) / M)**2
@@ -107,7 +114,6 @@ contains
              y=real((j+xstart(2)-2),mytype)*dy - half * yly
 
              phi1(:,j,:,ilevelset) = -y
-
           enddo
        endif
 
