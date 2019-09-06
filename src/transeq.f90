@@ -291,7 +291,7 @@ CONTAINS
     duy1(:,:,:,1) = mu1(:,:,:) * xnu*tb1(:,:,:) - th1(:,:,:)
     duz1(:,:,:,1) = mu1(:,:,:) * xnu*tc1(:,:,:) - ti1(:,:,:)
 
-    if (ilmn) then
+    if (ilmn.or.ifreesurface) then
        call momentum_full_viscstress_tensor(dux1(:,:,:,1), duy1(:,:,:,1), duz1(:,:,:,1), divu3, mu1)
     endif
 

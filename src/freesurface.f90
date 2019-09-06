@@ -270,7 +270,7 @@ contains
   subroutine update_fluid_properties(rho1, mu1, phi1)
 
     use decomp_2d, only : mytype, xsize
-    use var, only : one, two, three, pi, five
+    use var, only : half, one, two, three, pi, ten, sixteen
     use var, only : dx, dy, dz
     use var, only : numscalar
     use param, only : nrhotime, ilevelset
@@ -287,9 +287,9 @@ contains
 
     !! Local
     integer :: i, j, k
-    real(mytype) :: alpha
+    real(mytype) :: eps
 
-    alpha = five * (dx * dy * dz)**(one / three)
+    eps = (sixteen / ten) * (dx * dy * dz)**(one / three)
 
     !!---------------------------------
     if (ilevelset.gt.0) then
@@ -297,22 +297,26 @@ contains
        do k = 1, xsize(3)
           do j = 1, xsize(2)
              do i = 1, xsize(1)
-                if (phi1(i, j, k, ilevelset).gt.alpha) then
+                if (phi1(i, j, k, ilevelset).gt.eps) then
                    !! Fluid 1
                    rho1(i, j, k, 1) = dens1
                    mu1(i, j, k) = visc1
-                else if (phi1(i, j, k, ilevelset).lt.-alpha) then
+                else if (phi1(i, j, k, ilevelset).lt.-eps) then
                    !! Fluid 2
                    rho1(i, j, k, 1) = dens2
                    mu1(i, j, k) = visc2
                 else
                    !! Interface: smooth properties
-                   rho1(i, j, k, 1) = ((dens1 + dens2) &
-                        + (dens1 - dens2) * sin(pi * phi1(i, j, k, ilevelset) / (two * alpha))) &
-                        / (two * dens1)
-                   mu1(i, j, k) = ((visc1 + visc2) &
-                        + (visc1 - visc2) * sin(pi * phi1(i, j, k, ilevelset) / (two * alpha))) &
-                        / (two * visc1)
+                   ! rho1(i, j, k, 1) = ((dens1 + dens2) &
+                   !      + (dens1 - dens2) * sin(pi * phi1(i, j, k, ilevelset) / (two * eps))) &
+                   !      / (two * dens1)
+                   ! mu1(i, j, k) = ((visc1 + visc2) &
+                   !      + (visc1 - visc2) * sin(pi * phi1(i, j, k, ilevelset) / (two * eps))) &
+                   !      / (two * visc1)
+                   rho1(i, j, k, 1) = dens2 + (dens1 - dens2) * half * (one + phi1(i, j, k, ilevelset) / eps &
+                        + (sin(pi * phi1(i, j, k, ilevelset) / eps)) / pi)
+                   mu1(i, j, k) = visc2 + (visc1 - visc2) * half * (one + phi1(i, j, k, ilevelset) / eps &
+                        + (sin(pi * phi1(i, j, k, ilevelset) / eps)) / pi)
                 endif
              enddo
           enddo

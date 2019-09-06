@@ -350,12 +350,10 @@ subroutine parameter(input_i3d)
 
   xnu=one/re
 
-  if (ilmn) then
-     if (ivarcoeff) then
-        npress = 2 !! Need current pressure and previous iterate
-     else
-        npress = 1
-     endif
+  if ((ilmn.and.ivarcoeff).or.ifreesurface) then
+     npress = 2 !! Need current pressure and previous iterate
+  else
+     npress = 1
   endif
 
 #ifdef DOUBLE_PREC

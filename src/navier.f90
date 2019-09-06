@@ -23,7 +23,7 @@ contains
     USE var, ONLY : nzmsize
     USE var, ONLY : dv3
     USE param, ONLY : ntime, nrhotime, npress
-    USE param, ONLY : ilmn, ivarcoeff
+    USE param, ONLY : ilmn, ivarcoeff, ifreesurface
 
     IMPLICIT NONE
 
@@ -47,7 +47,7 @@ contains
     converged = .FALSE.
     poissiter = 0
 
-    atol = 1.0e-14_mytype !! Absolute tolerance for Poisson solver
+    atol = 1.0e-12_mytype !! Absolute tolerance for Poisson solver
     rtol = 1.0e-14_mytype !! Relative tolerance for Poisson solver
 
     IF (ilmn.AND.ivarcoeff) THEN
@@ -57,12 +57,12 @@ contains
     ENDIF
 
     CALL divergence(pp3(:,:,:,1),rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
-    IF (ilmn.AND.ivarcoeff) THEN
+    IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
        dv3(:,:,:) = pp3(:,:,:,1)
     ENDIF
 
     DO WHILE(.NOT.converged)
-       IF (ivarcoeff) THEN
+       IF (ivarcoeff.OR.ifreesurface) THEN
 
           !! Test convergence
           CALL test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
@@ -80,7 +80,7 @@ contains
           !! Need to update pressure gradient here for varcoeff
           CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
 
-          IF ((.NOT.ilmn).OR.(.NOT.ivarcoeff)) THEN
+          IF (((.NOT.ilmn).AND.(.NOT.ivarcoeff)).AND.(.NOT.ifreesurface)) THEN
              !! Once-through solver
              !! - Incompressible flow
              !! - LMN - constant-coefficient solver
@@ -165,7 +165,7 @@ contains
   ! output : ux,uy,uz
   !written by SL 2018
   !********************************************************************
-  subroutine corpg (ux,uy,uz,px,py,pz)
+  subroutine corpg (rho,ux,uy,uz,px,py,pz)
 
     USE decomp_2d
     USE variables
@@ -175,10 +175,17 @@ contains
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: px,py,pz
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime),intent(in) :: rho
 
-    ux(:,:,:)=ux(:,:,:)-px(:,:,:)
-    uy(:,:,:)=uy(:,:,:)-py(:,:,:)
-    uz(:,:,:)=uz(:,:,:)-pz(:,:,:)
+    if (.not.ifreesurface) then
+       ux(:,:,:)=ux(:,:,:)-px(:,:,:)
+       uy(:,:,:)=uy(:,:,:)-py(:,:,:)
+       uz(:,:,:)=uz(:,:,:)-pz(:,:,:)
+    else
+       ux(:,:,:)=ux(:,:,:)-px(:,:,:)/rho(:,:,:,1)
+       uy(:,:,:)=uy(:,:,:)-py(:,:,:)/rho(:,:,:,1)
+       uz(:,:,:)=uz(:,:,:)-pz(:,:,:)/rho(:,:,:,1)
+    endif
 
     return
   end subroutine corpg
@@ -1047,7 +1054,7 @@ contains
     USE param, ONLY : nrhotime, ntime
     USE param, ONLY : one
 
-    USE var, ONLY : ta1, tb1, tc1
+    USE var, ONLY : td1, te1, tf1
     USE var, ONLY : nzmsize
 
     IMPLICIT NONE
@@ -1075,12 +1082,12 @@ contains
        CALL MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
     ENDIF
 
-    ta1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
-    tb1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
-    tc1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+    td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
+    te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
+    tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
 
     nlock = -1 !! Don't do any funny business with LMN
-    CALL divergence(pp3,rho1,ta1,tb1,tc1,ep1,drho1,divu3,nlock)
+    CALL divergence(pp3,rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
 
     !! lapl(p) = div((1 - rho0/rho) grad(p)) + rho0(div(u*) - div(u))
     !! dv3 contains div(u*) - div(u)
