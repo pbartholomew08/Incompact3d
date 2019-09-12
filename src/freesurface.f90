@@ -40,14 +40,15 @@ contains
     !! Local
     integer :: i, j, k
 
-    integer :: iter
+    integer :: iter, subiter
     logical :: converged
     integer :: ierr
 
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: S1, &
          mag_grad_ls1, gradx_ls1, grady_ls1, gradz_ls1, &
-         levelset1_old, &
-         rhs_old, rhs_1, rhs_2
+         levelset1_old
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3), 3) :: rhs
+    real(mytype), dimension(3) :: a, b, c
 
     real(mytype) :: dtau
     real(mytype) :: delta_ls, global_delta_ls
@@ -60,12 +61,27 @@ contains
 
     real(mytype), parameter :: cfl = one / ten
 
-    deltax = (dx * dy * dz)**(one / three)
+    ! deltax = (dx * dy * dz)**(one / three)
+    deltax = (dx * dy)**(one / two)
     eps = deltax !! SUSSMAN1994
     alpha = two * deltax
 
     dtau = cfl * deltax
     niter = int((float(neps) * deltax) / dtau)
+
+    a(1) = one
+    a(2) = one / four
+    a(3) = one / six
+
+    b(1) = zero
+    b(2) = one / four
+    b(3) = one / six
+
+    c(1) = zero
+    c(2) = zero
+    c(3) = four / six
+
+    rhs(:,:,:,:) = zero
 
     !! Step to steady state
     converged = .false.
@@ -76,33 +92,21 @@ contains
           print *, "Level-set reinitialisation: ", iter
        endif
 
-       if (iter == 0) then
-          S1(:,:,:) = levelset1(:,:,:)
-       else
-          call compute_reinit_smooth(S1, levelset1, mag_grad_ls1, eps)
-       endif
-       call reinit_ls_grad(gradx_ls1, grady_ls1, gradz_ls1, levelset1, S1)
-       mag_grad_ls1 = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2)
-
        !! Update level-set
        levelset1_old(:,:,:) = levelset1(:,:,:)
 
-       ! Solve an ODE
-       rhs_old(:,:,:) = S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
-       levelset1(:,:,:) = levelset1_old(:,:,:) + dtau * rhs_old
+       do subiter = 1, 3
+          rhs(:,:,:,3) = rhs(:,:,:,2)
+          rhs(:,:,:,2) = rhs(:,:,:,1)
+          
+          call compute_reinit_smooth(S1, levelset1, mag_grad_ls1, eps, iter + (subiter - 1))
+          call reinit_ls_grad(gradx_ls1, grady_ls1, gradz_ls1, levelset1, S1)
+          mag_grad_ls1 = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2)
+          rhs(:,:,:,1) = S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
 
-       call compute_reinit_smooth(S1, levelset1, mag_grad_ls1, eps)
-       call reinit_ls_grad(gradx_ls1, grady_ls1, gradz_ls1, levelset1, S1)
-       mag_grad_ls1 = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2)
-       rhs_1(:,:,:) = S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
-       levelset1(:,:,:) = levelset1_old(:,:,:) + (dtau / four) * (rhs_old(:,:,:) + rhs_1(:,:,:))
-
-       call compute_reinit_smooth(S1, levelset1, mag_grad_ls1, eps)
-       call reinit_ls_grad(gradx_ls1, grady_ls1, gradz_ls1, levelset1, S1)
-       mag_grad_ls1 = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2)
-       rhs_2(:,:,:) = S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
-       levelset1(:,:,:) = levelset1_old(:,:,:) &
-            + (dtau / six) * (rhs_old(:,:,:) + four * rhs_2(:,:,:) + rhs_1(:,:,:))
+          levelset1(:,:,:) = levelset1_old &
+               + dtau * (a(subiter) * rhs(:,:,:,1) + b(subiter) * rhs(:,:,:,2) + c(subiter) * rhs(:,:,:,3))
+       enddo
 
        !! Test convergence (SUSSMAN1994)
        delta_ls = zero
@@ -149,7 +153,8 @@ contains
          gradz_ls1m => tf1, gradz_ls1p => tg1
     use var, only : levelset2 => ta2, wy2 => tb2, grady_ls2 => tc2, gradz_ls2 => td2
     use var, only : levelset3 => ta3, wz3 => tb3, gradz_ls3 => tc3
-
+    use var, only : nclx1, ncly1, nclz1
+    
     use variables, only : nz
 
     implicit none
@@ -163,20 +168,26 @@ contains
 
     !! Locals
     integer :: i, j, k
-    integer, parameter :: fixedbc = 2
+    integer :: fsbc
 
     call transpose_x_to_y(levelset1, levelset2)
     call transpose_y_to_z(levelset2, levelset3)
 
     ! Z
     if (nz.gt.1) then
+       if (nclz1.eq.0) then
+          fsbc = 0
+       else
+          fsbc = 2
+       endif
+          
        wz3(:,:,:) = one
-       call weno5 (gradz_ls3, levelset3, wz3, 3, fixedbc, fixedbc, zsize(1), zsize(2), zsize(3), 1)
+       call weno5 (gradz_ls3, levelset3, wz3, 3, fsbc, fsbc, zsize(1), zsize(2), zsize(3), 1)
        call transpose_z_to_y(gradz_ls3, gradz_ls2)
        call transpose_y_to_x(gradz_ls2, gradz_ls1m)
 
        wz3(:,:,:) = -one
-       call weno5 (gradz_ls3, levelset3, wz3, 3, fixedbc, fixedbc, zsize(1), zsize(2), zsize(3), 1)
+       call weno5 (gradz_ls3, levelset3, wz3, 3, fsbc, fsbc, zsize(1), zsize(2), zsize(3), 1)
        call transpose_z_to_y(gradz_ls3, gradz_ls2)
        call transpose_y_to_x(gradz_ls2, gradz_ls1p)
     else
@@ -185,19 +196,31 @@ contains
     endif
 
     ! Y
+    if (ncly1.eq.0) then
+       fsbc = 0
+    else
+       fsbc = 2
+    endif
+    
     wy2(:,:,:) = one
-    call weno5 (grady_ls2, levelset2, wy2, 2, fixedbc, fixedbc, ysize(1), ysize(2), ysize(3), 1)
+    call weno5 (grady_ls2, levelset2, wy2, 2, fsbc, fsbc, ysize(1), ysize(2), ysize(3), 1)
     call transpose_y_to_x(grady_ls2, grady_ls1m)
 
     wy2(:,:,:) = -one
-    call weno5 (grady_ls2, levelset2, wy2, 2, fixedbc, fixedbc, ysize(1), ysize(2), ysize(3), 1)
+    call weno5 (grady_ls2, levelset2, wy2, 2, fsbc, fsbc, ysize(1), ysize(2), ysize(3), 1)
     call transpose_y_to_x(grady_ls2, grady_ls1p)
 
     ! X
+    if (nclx1.eq.0) then
+       fsbc = 0
+    else
+       fsbc = 2
+    endif
+    
     wx1 = one
-    call weno5 (gradx_ls1m, levelset1, wx1, 1, fixedbc, fixedbc, xsize(1), xsize(2), xsize(3), 1)
+    call weno5 (gradx_ls1m, levelset1, wx1, 1, fsbc, fsbc, xsize(1), xsize(2), xsize(3), 1)
     wx1 = -one
-    call weno5 (gradx_ls1p, levelset1, wx1, 1, fixedbc, fixedbc, xsize(1), xsize(2), xsize(3), 1)
+    call weno5 (gradx_ls1p, levelset1, wx1, 1, fsbc, fsbc, xsize(1), xsize(2), xsize(3), 1)
     
     do k = 1, xsize(3)
        do j = 1, xsize(2)
@@ -240,30 +263,46 @@ contains
 
   endsubroutine reinit_ls_grad
 
-  subroutine compute_reinit_smooth (S1, levelset1, mag_grad_ls1, eps)
+  subroutine compute_reinit_smooth (S1, levelset1, mag_grad_ls1, eps, iter)
 
     use decomp_2d, only : mytype, xsize
 
-    use var, only : one
+    use var, only : zero, one, two
 
     implicit none
 
     !! In
     real(mytype), intent(in) :: eps
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: levelset1, mag_grad_ls1
+    integer, intent(in) :: iter
 
     !! Out
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(out) :: S1
 
     !! Local
     real(mytype), parameter :: macheps = epsilon(one)
+    integer :: i, j, k
 
-    ! !! SUSSMAN1994
-    ! S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 + eps**2)
+    if (iter.eq.0) then
+       S1(:,:,:) = levelset1(:,:,:)
+    else
+       ! !! SUSSMAN1994
+       ! S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 + eps**2)
 
-    !! MCSHERRY2017
-    S1(:,:,:) = levelset1(:,:,:) &
-         / (sqrt(levelset1(:,:,:)**2 + (mag_grad_ls1(:,:,:) * eps)**2) + macheps)
+       !! MCSHERRY2017
+       S1(:,:,:) = levelset1(:,:,:) &
+            / (sqrt(levelset1(:,:,:)**2 + (mag_grad_ls1(:,:,:) * eps)**2) + macheps)
+    endif
+
+    do k = 1, xsize(3)
+       do j = 1, xsize(2)
+          do i = 1, xsize(1)
+             if (abs(levelset1(i, j, k)).gt.(two * eps)) then
+                S1(i, j, k) = zero
+             endif
+          enddo
+       enddo
+    enddo
 
   endsubroutine compute_reinit_smooth
 
@@ -289,7 +328,8 @@ contains
     integer :: i, j, k
     real(mytype) :: eps
 
-    eps = (sixteen / ten) * (dx * dy * dz)**(one / three)
+    ! eps = (sixteen / ten) * (dx * dy * dz)**(one / three)
+    eps = (sixteen / ten) * (dx * dy)**(one / two)
 
     !!---------------------------------
     if (ilevelset.gt.0) then
