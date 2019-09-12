@@ -71,7 +71,7 @@ CONTAINS
     INTEGER :: it, is
 
     !! Zero out the pressure field
-    pp3(:,:,:,1) = zero
+    pp3(:,:,:,:) = zero
     px1(:,:,:) = zero
     py1(:,:,:) = zero
     pz1(:,:,:) = zero
