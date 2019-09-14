@@ -482,7 +482,6 @@ contains
           kp2 = k
        
           if ((bc0==0).and.(bcn==0)) then
-             j = 1
        
              do i = 1, isize
                 im1 = i
@@ -491,6 +490,7 @@ contains
                 ip1 = i
                 ip2 = i
        
+                j = 1
                 if (advvel(i, j, k)==zero) then
                    gradphi(i, j, k) = zero
                 else
@@ -635,8 +635,8 @@ contains
                       jm1 = j - 1
                       jm2 = j - 2
                       jm3 = j - 3
-                      jp1 = j
-                      jp2 = j
+                      jp1 = 1
+                      jp2 = 2
                    else
                       dsign = -one
        
