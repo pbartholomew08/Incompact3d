@@ -120,7 +120,7 @@ CONTAINS
 
     if (ilevelset.gt.0) then
        !! Ensure levelset is valid in region of interface
-       call reinit_ls(phi1(:,:,:,ilevelset), 5)
+       call reinit_ls(phi1(:,:,:,ilevelset), 5, .true.)
        call update_fluid_properties(rho1, mu1, phi1)
     endif
     

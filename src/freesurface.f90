@@ -1,6 +1,10 @@
 module freesurface
 
+  use decomp_2d, only : mytype, xsize
+  
   implicit none
+  
+  real(mytype), save, allocatable, dimension(:,:,:) :: S1
 
   private
   public :: reinit_ls, update_fluid_properties
@@ -17,14 +21,18 @@ contains
   !!              pseudo timestep and S is a smoothing function
   !!                S(ls_0) = ls_0 / sqrt({ls_0}^2 + (|grad(ls)|dx)^2)
   !!------------------------------------------------------------------------
-  subroutine reinit_ls(levelset1, neps)
+  subroutine reinit_ls(levelset1, neps, init)
 
     use MPI
 
-    use decomp_2d, only : mytype, real_type, xsize, nrank
+    use decomp_2d, only : mytype, real_type, xsize, xstart, xend, ysize, zsize, nrank
     use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
-    use param, only : zero, one, two, three, four, six, ten
+    use decomp_2d, only : alloc_x
+    use param, only : zero, one, two, three, four, six, ten, sixteen
     use param, only : dt, dx, dy, dz
+    use var, only : itime
+    use var, only : xlx, yly, zlz
+    use var, only : nclx1, ncly1, nclz1
 
     !! Derivatives
     use weno, only : weno5
@@ -33,6 +41,7 @@ contains
 
     !! In
     integer, intent(in) :: neps
+    logical, intent(in) :: init
 
     !! InOut
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(inout) :: levelset1
@@ -44,14 +53,13 @@ contains
     logical :: converged
     integer :: ierr
 
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: S1, &
-         mag_grad_ls1, gradx_ls1, grady_ls1, gradz_ls1, &
-         levelset1_old
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: mag_grad_ls1, gradx_ls1, grady_ls1, &
+         gradz_ls1, levelset1_old
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), 3) :: rhs
     real(mytype), dimension(3) :: a, b, c
 
     real(mytype) :: dtau
-    real(mytype) :: delta_ls, global_delta_ls
+    real(mytype) :: delta_ls, global_delta_ls, max_delta_ls, global_max_delta_ls, abs_delta_ls
     real(mytype) :: deltax
     integer :: ctr, global_ctr
     real(mytype) :: alpha
@@ -60,14 +68,28 @@ contains
     integer :: niter
 
     real(mytype), parameter :: cfl = one / ten
+    real(mytype) :: tol, global_tol
 
-    ! deltax = (dx * dy * dz)**(one / three)
-    deltax = (dx * dy)**(one / two)
+    if (init) then
+       call alloc_x(S1)
+       S1(:,:,:) = levelset1(:,:,:)
+    endif
+
+    deltax = min(dx, dy, dz)
     eps = deltax !! SUSSMAN1994
-    alpha = two * deltax
+    alpha = sixteen / ten * eps
 
     dtau = cfl * deltax
-    niter = int((float(neps) * deltax) / dtau)
+    if (.not.init) then
+       niter = int((float(neps) * alpha) / dtau)
+       tol = alpha
+    else
+       niter = int(max(xlx, yly, zlz) / dtau)
+       niter = int(one / dtau)
+       tol = max(maxval(levelset1), abs(minval(levelset1)))
+       call MPI_ALLREDUCE(tol,global_tol,1,real_type,MPI_MAX,MPI_COMM_WORLD,ierr)
+       tol = global_tol
+    endif
 
     a(1) = one
     a(2) = one / four
@@ -88,9 +110,6 @@ contains
     iter = 0
     dtau = dt
     do while (.not.converged)
-       if (nrank.eq.0) then
-          print *, "Level-set reinitialisation: ", iter
-       endif
 
        !! Update level-set
        levelset1_old(:,:,:) = levelset1(:,:,:)
@@ -98,32 +117,66 @@ contains
        do subiter = 1, 3
           rhs(:,:,:,3) = rhs(:,:,:,2)
           rhs(:,:,:,2) = rhs(:,:,:,1)
-          
-          call compute_reinit_smooth(S1, levelset1, mag_grad_ls1, eps, iter + (subiter - 1))
+
           call reinit_ls_grad(gradx_ls1, grady_ls1, gradz_ls1, levelset1, S1)
           mag_grad_ls1 = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2)
+          call compute_reinit_smooth(S1, levelset1, mag_grad_ls1, alpha, eps)
           rhs(:,:,:,1) = S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
 
           levelset1(:,:,:) = levelset1_old &
                + dtau * (a(subiter) * rhs(:,:,:,1) + b(subiter) * rhs(:,:,:,2) + c(subiter) * rhs(:,:,:,3))
+
+          !! Bounding at the boundaries
+          if (nclx1.ne.0) then
+             levelset1(1,:,:) = levelset1(2,:,:)
+             levelset1(xsize(1),:,:) = levelset1(xsize(1)-1,:,:)
+          endif
+          if (ncly1.ne.0) then
+             if (xstart(2).eq.1) then
+                levelset1(:,1,:) = levelset1(:,2,:)
+             endif
+             if (xend(2).eq.ysize(2)) then
+                levelset1(:,xsize(2),:) = levelset1(:,xsize(2)-1,:)
+             endif
+          endif
+          if (nclz1.ne.0) then
+             if (xstart(3).eq.1) then
+                levelset1(:,:,1) = levelset1(:,:,2)
+             endif
+             if (xend(3).eq.zsize(3)) then
+                levelset1(:,:,xsize(3)) = levelset1(:,:,xsize(3)-1)
+             endif
+          endif
        enddo
 
        !! Test convergence (SUSSMAN1994)
        delta_ls = zero
+       max_delta_ls = zero
        ctr = 0
        do k = 1, xsize(3)
           do j = 1, xsize(2)
              do i = 1, xsize(1)
-                delta_ls = delta_ls + abs(levelset1(i, j, k) - levelset1_old(i, j, k))
-                ctr = ctr + 1
+                abs_delta_ls = abs(levelset1(i, j, k) - levelset1_old(i, j, k))
+                max_delta_ls = max(max_delta_ls, abs_delta_ls)
+                if (abs(levelset1_old(i, j, k)).le.tol) then
+                   delta_ls = delta_ls + abs_delta_ls
+                   ctr = ctr + 1
+                endif
              enddo
           enddo
        enddo
        call MPI_ALLREDUCE(delta_ls,global_delta_ls,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
-       global_ctr = ctr !call MPI_ALLREDUCE(ctr,global_ctr,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
+       call MPI_ALLREDUCE(max_delta_ls,global_max_delta_ls,1,real_type,MPI_MAX,MPI_COMM_WORLD,ierr)
+       call MPI_ALLREDUCE(ctr,global_ctr,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
 
-       if ((global_ctr==0).or.(global_delta_ls < 0.0005_mytype)) then
-          converged = .true.
+       if ((iter.ge.1).or.(itime.gt.1)) then 
+          if ((global_ctr==0).or.(global_delta_ls < dtau * (eps**2) * float(global_ctr))) then
+             !! SUSSMAN TEST
+             converged = .true.
+          else if (global_max_delta_ls.lt.0.0005) then
+             !! HYDRO3D TEST
+             converged = .true.
+          endif
        endif
 
        iter = iter + 1
@@ -132,8 +185,9 @@ contains
           converged = .true.
        endif
 
-       if (converged.and.(nrank.eq.0)) then
-          print *, "Level-set delta: ", global_delta_ls
+       if (nrank.eq.0) then
+          print *, "Level-set reinitialisation: ", iter, " / ", niter, " : ", global_delta_ls, &
+               " / ", dtau * (eps**3) * float(global_ctr), dtau, eps**2
        endif
     enddo
 
@@ -263,7 +317,7 @@ contains
 
   endsubroutine reinit_ls_grad
 
-  subroutine compute_reinit_smooth (S1, levelset1, mag_grad_ls1, eps, iter)
+  subroutine compute_reinit_smooth (S1, levelset1, mag_grad_ls1, alpha, eps)
 
     use decomp_2d, only : mytype, xsize
 
@@ -272,37 +326,31 @@ contains
     implicit none
 
     !! In
-    real(mytype), intent(in) :: eps
+    real(mytype), intent(in) :: eps, alpha
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: levelset1, mag_grad_ls1
-    integer, intent(in) :: iter
 
     !! Out
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(out) :: S1
 
     !! Local
-    real(mytype), parameter :: macheps = epsilon(one)
     integer :: i, j, k
 
-    if (iter.eq.0) then
-       S1(:,:,:) = levelset1(:,:,:)
-    else
-       ! !! SUSSMAN1994
-       ! S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 + eps**2)
+    ! !! SUSSMAN1994
+    ! S1(:,:,:) = levelset1(:,:,:) / sqrt(levelset1(:,:,:)**2 + eps**2)
 
-       !! MCSHERRY2017
-       S1(:,:,:) = levelset1(:,:,:) &
-            / (sqrt(levelset1(:,:,:)**2 + (mag_grad_ls1(:,:,:) * eps)**2) + macheps)
-    endif
+    !! MCSHERRY2017
+    S1(:,:,:) = levelset1(:,:,:) &
+         / (sqrt(levelset1(:,:,:)**2 + ((mag_grad_ls1(:,:,:))**2 * eps**2)))
 
-    do k = 1, xsize(3)
-       do j = 1, xsize(2)
-          do i = 1, xsize(1)
-             if (abs(levelset1(i, j, k)).gt.(two * eps)) then
-                S1(i, j, k) = zero
-             endif
-          enddo
-       enddo
-    enddo
+    ! do k = 1, xsize(3)
+    !    do j = 1, xsize(2)
+    !       do i = 1, xsize(1)
+    !          if (abs(levelset1(i, j, k)).gt.alpha) then
+    !             S1(i, j, k) = zero
+    !          endif
+    !       enddo
+    !    enddo
+    ! enddo
 
   endsubroutine compute_reinit_smooth
 
@@ -328,8 +376,7 @@ contains
     integer :: i, j, k
     real(mytype) :: eps
 
-    ! eps = (sixteen / ten) * (dx * dy * dz)**(one / three)
-    eps = (sixteen / ten) * (dx * dy)**(one / two)
+    eps = (sixteen / ten) * (dx * dy * dz)**(one / three)
 
     !!---------------------------------
     if (ilevelset.gt.0) then

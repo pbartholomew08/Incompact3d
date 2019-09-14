@@ -199,7 +199,7 @@ contains
              ENDDO
 
              IF (is.EQ.ilevelset) THEN
-                CALL reinit_ls(phi1(:,:,:,is), 2)
+                CALL reinit_ls(phi1(:,:,:,is), 2, .false.)
              ENDIF
           ENDIF
        ENDDO
