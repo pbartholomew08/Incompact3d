@@ -20,8 +20,10 @@ contains
 
     USE decomp_2d, ONLY : mytype, xsize, zsize, ph1
     USE decomp_2d_poisson, ONLY : poisson
+    USE var, ONLY : itr, itime
     USE var, ONLY : nzmsize
     USE var, ONLY : dv3
+    USE var, ONLY : two
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff, ifreesurface
 
@@ -39,7 +41,7 @@ contains
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: px1, py1, pz1
 
     !! Locals
-    INTEGER :: nlock, poissiter
+    INTEGER :: nlock, poissiter, piter
     LOGICAL :: converged
     REAL(mytype) :: atol, rtol
 
@@ -59,6 +61,10 @@ contains
     CALL divergence(pp3(:,:,:,1),rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
     IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
        dv3(:,:,:) = pp3(:,:,:,1)
+
+       IF ((itime.GT.1).AND.(itr.EQ.1)) THEN
+          pp3(:,:,:,1) = two * pp3(:,:,:,2) - pp3(:,:,:,3)
+       ENDIF
     ENDIF
 
     DO WHILE(.NOT.converged)
@@ -90,6 +96,14 @@ contains
 
        poissiter = poissiter + 1
     ENDDO
+
+    IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
+       IF (itr.EQ.1) THEN
+          DO piter = npress, 2, -1
+             pp3(:,:,:,piter) = pp3(:,:,:,piter - 1)
+          ENDDO
+       ENDIF
+    ENDIF
 
     IF (ilmn.AND.ivarcoeff) THEN
        !! Variable-coefficient Poisson solver works on div(u), not div(rho u)
@@ -1079,7 +1093,7 @@ contains
        !! Compute rho0
        rhomin = MINVAL(rho1)
 
-       CALL MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
+       CALL MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
     ENDIF
 
     td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
