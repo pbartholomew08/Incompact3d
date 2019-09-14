@@ -35,11 +35,10 @@ contains
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
 
-    real(mytype) :: x
+    real(mytype) :: x, y, r, x0, y0
     integer :: k,j,i,is
 
     if (iscalar==1) then
-
        phi1(:,:,:,:) = zero
     endif
 
@@ -51,13 +50,20 @@ contains
 
     endif
 
+    !! Set the circle centre
+    x0 = zero
+    y0 = zero
+    
     if (iin.eq.1) then !generation of a random noise
 
        !INIT FOR G AND U=MEAN FLOW + NOISE
        do k=1,xsize(3)
           do j=1,xsize(2)
+             y = real(j + xstart(2) - 2, mytype) * dy - half * yly
              do i=1,xsize(1)
-                x = real(i + xstart(1) - 2, mytype) * dx
+                x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
+
+                r = sqrt((x - x0)**2 + (y - y0)**2)
                 
                 ux1(i,j,k) = one
                 uy1(i,j,k) = zero
@@ -65,23 +71,21 @@ contains
 
                 rho1(i,j,k,1) = one
 
-                !! Set phi1 like level-set
-                !! XXX level-set is a DISTANCE function
-                if ((x.gt.(0.4_mytype*xlx)).and.(x.lt.(0.6_mytype*xlx))) then
-                   phi1(i, j, k, :) = min(abs(x - 0.4_mytype * xlx), abs(x - 0.6_mytype))
-                   ! phi1(i, j, k, :) = one
+                !! Circle
+                if (r.lt.0.5_mytype) then
+                   phi1(i, j, k, :) = one !(0.5_mytype - r)
+                else if (r.gt.0.5_mytype) then
+                   phi1(i, j, k, :) = -one !-(r - 0.5_mytype)
                 else
-                   if (x.gt.half*xlx) then
-                      phi1(i, j, k, :) = -min(abs(x - 0.6_mytype * xlx), abs((xlx - x) + 0.4_mytype * xlx))
-                   else
-                      phi1(i, j, k, :) = -min(abs(x - 0.4_mytype * xlx), abs(x + (xlx - 0.6_mytype * xlx)))
-                   endif
-                   ! phi1(i, j, k, :) = -one
+                   phi1(i, j, k, :) = zero
                 endif
 
-                ! x = abs(x - half * xlx)
-                ! phi1(i, j, k, :) = tanh((xlx / ten - x) / dx)
-
+                !! Square
+                if ((abs(x).lt.0.5_mytype).and.(abs(y).lt.0.5_mytype)) then
+                   phi1(i, j, k, :) = one
+                else
+                   phi1(i, j, k, :) = -one
+                endif
              enddo
           enddo
        enddo

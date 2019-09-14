@@ -113,7 +113,17 @@ contains
           do j = 1, xsize(2)
              y=real((j+xstart(2)-2),mytype)*dy - half * yly
 
+             !! "Good" initialisation
              phi1(:,j,:,ilevelset) = -y
+
+             ! !! "Harsh" initialisation
+             ! if (y.gt.0._mytype) then
+             !    phi1(:,j,:,ilevelset) = -1._mytype
+             ! else if (y.lt.0._mytype) then
+             !    phi1(:,j,:,ilevelset) = 1._mytype
+             ! else
+             !    phi1(:,j,:,ilevelset) = 0._mytype
+             ! endif
           enddo
        endif
 
