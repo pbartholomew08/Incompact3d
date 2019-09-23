@@ -55,7 +55,6 @@ contains
 
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: mag_grad_ls1, gradx_ls1, grady_ls1, &
          gradz_ls1, levelset1_old
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3), 3) :: rhs
     real(mytype), dimension(3) :: a, b, c
 
     real(mytype) :: dtau
@@ -92,18 +91,16 @@ contains
     endif
 
     a(1) = one
-    a(2) = one / four
-    a(3) = one / six
+    a(2) = three / four
+    a(3) = one / three
 
     b(1) = zero
     b(2) = one / four
-    b(3) = one / six
+    b(3) = two / three
 
-    c(1) = zero
-    c(2) = zero
-    c(3) = four / six
-
-    rhs(:,:,:,:) = zero
+    c(1) = one
+    c(2) = one / four
+    c(3) = two / three
 
     !! Step to steady state
     converged = .false.
@@ -115,16 +112,12 @@ contains
        levelset1_old(:,:,:) = levelset1(:,:,:)
 
        do subiter = 1, 3
-          rhs(:,:,:,3) = rhs(:,:,:,2)
-          rhs(:,:,:,2) = rhs(:,:,:,1)
-
           call reinit_ls_grad(gradx_ls1, grady_ls1, gradz_ls1, levelset1, S1)
           mag_grad_ls1 = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2)
           call compute_reinit_smooth(S1, levelset1, mag_grad_ls1, alpha, eps)
-          rhs(:,:,:,1) = S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
 
-          levelset1(:,:,:) = levelset1_old &
-               + dtau * (a(subiter) * rhs(:,:,:,1) + b(subiter) * rhs(:,:,:,2) + c(subiter) * rhs(:,:,:,3))
+          levelset1(:,:,:) = a(subiter) * levelset1_old(:,:,:) + b(subiter) * levelset1(:,:,:) &
+               + c(subiter) * dtau * S1(:,:,:) * (one - mag_grad_ls1(:,:,:))
 
           !! Bounding at the boundaries
           if (nclx1.ne.0) then
