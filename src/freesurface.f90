@@ -420,14 +420,14 @@ contains
     use var, only : zero, one, two, three, pi
     use var, only : stfx1 => ta1, stfy1 => tb1, stfz1 => tc1, &
          gradx_ls1 => td1, grady_ls1 => te1, gradz_ls1 => tf1, mag_grad_ls1 => tg1, &
-         kdelta => tg1
+         kdelta => th1
     use var, only : levelset2 => ta2, grady_ls2 => tb2, gradz_ls2 => tc2
     use var, only : levelset3 => ta3, gradz_ls3 => tb3
     use var, only : ux1, uy2, uz3
     use var, only : ep1, drho1, divu3
     use var, only : dv3, ppi3, dip3
     use var, only : pp2, ppi2, dip2
-    use var, only : pp1 => th1, ppi1 => ti1, di1
+    use var, only : pp1, ppi1 => ti1, di1
     use var, only : ph2, ph3
     use var, only : nxmsize, nymsize, nzmsize
 
