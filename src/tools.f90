@@ -903,7 +903,7 @@ contains
     use decomp_2d
     use param
 
-    use navier, only : divergence
+    use div, only : divergence
 
     use var, only : numscalar, dv3
 

@@ -405,4 +405,84 @@ contains
 
   endsubroutine update_fluid_properties
 
+
+  subroutine surface_tension_force(dux1, duy1, duz1, rho1, levelset1)
+
+    use decomp_2d, only : mytype
+    use decomp_2d, only : xsize, ysize, zsize
+    use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
+
+    use variables, only : cifip6, cisip6, ciwip6, cifx6, cisx6, ciwx6
+    use variables, only : cifip6y, cisip6y, ciwip6y, cify6, cisy6, ciwy6
+    use variables, only : cifip6z, cisip6z, ciwip6z, cifz6, cisz6, ciwz6
+    use variables, only : sx, sy, sz
+    
+    use var, only : stfx1 => ta1, stfy1 => tb1, stfz1 => tc1, &
+         gradx_ls1 => td1, grady_ls1 => te1, gradz_ls1 => tf1, mag_grad_ls1 => tg1
+    use var, only : levelset2 => ta2, grady_ls2 => tb2, gradz_ls2 => tc2
+    use var, only : levelset3 => ta3, gradz_ls3 => tb3
+    use var, only : ux1, uy2, uz3
+    use var, only : ep1, drho1, divu3
+    use var, only : dv3, ppi3, dip3
+    use var, only : pp2, ppi2, dip2
+    use var, only : pp1 => th1, ppi1 => ti1, di1
+    use var, only : ph2, ph3
+    use var, only : nxmsize, nymsize, nzmsize
+
+    use div, only : divergence
+
+    use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
+    use param, only : nrhotime
+
+    use weno, only : weno5
+    
+    implicit none
+
+    !! IN
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: levelset1
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime), intent(in) :: rho1
+
+    !! INOUT
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(inout) :: dux1, duy1, duz1
+
+    !! LOCAL
+    real(mytype), parameter :: macheps = epsilon(1._mytype)
+    integer :: nlock
+
+    !! Fist, compute grad(ls) and normalise
+    call transpose_x_to_y(levelset1, levelset2)
+    call transpose_y_to_z(levelset2, levelset3)
+
+    call weno5 (gradz_ls3, levelset3, uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
+    call weno5 (grady_ls2, levelset2, uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
+    call weno5 (gradx_ls1, levelset1, ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
+
+    call transpose_z_to_y(gradz_ls3, gradz_ls2)
+    call transpose_y_to_x(grady_ls2, grady_ls1)
+    call transpose_y_to_x(gradz_ls2, gradz_ls1)
+    
+    mag_grad_ls1(:,:,:) = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2) + macheps
+    gradx_ls1(:,:,:) = gradx_ls1(:,:,:) / mag_grad_ls1(:,:,:)
+    grady_ls1(:,:,:) = grady_ls1(:,:,:) / mag_grad_ls1(:,:,:)
+    gradz_ls1(:,:,:) = gradz_ls1(:,:,:) / mag_grad_ls1(:,:,:)
+
+    !! Compute div(grad(ls) / |grad(ls)|)
+    nlock = 0
+    call divergence(dv3,rho1,gradx_ls1,grady_ls1,gradz_ls1,ep1,drho1,divu3,nlock)
+    call interzpv(ppi3,dv3,dip3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+         (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
+    call transpose_z_to_y(ppi3,pp2,ph3)
+    call interypv(ppi2,pp2,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+         (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+    call transpose_y_to_x(ppi2,pp1,ph2)
+    call interxpv(ppi1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+         nxmsize,xsize(1),xsize(2),xsize(3),1)
+    
+    !! Add contribution to forcing terms
+    dux1(:,:,:) = dux1(:,:,:) + stfx1(:,:,:) / rho1(:,:,:,1)
+    duy1(:,:,:) = duy1(:,:,:) + stfy1(:,:,:) / rho1(:,:,:,1)
+    duz1(:,:,:) = duz1(:,:,:) + stfz1(:,:,:) / rho1(:,:,:,1)
+    
+  end subroutine surface_tension_force
+
 endmodule freesurface
