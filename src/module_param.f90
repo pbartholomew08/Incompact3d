@@ -288,6 +288,7 @@ module param
   !! Free surface
   logical :: ifreesurface
   integer :: ilevelset
+  logical :: ls_reinit
 
   !! Case-specific variables
   logical :: tgv_twod

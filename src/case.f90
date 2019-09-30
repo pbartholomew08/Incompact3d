@@ -119,8 +119,10 @@ CONTAINS
     ENDIF
 
     if (ilevelset.gt.0) then
-       !! Ensure levelset is valid in region of interface
-       call reinit_ls(phi1(:,:,:,ilevelset), 5, .true.)
+       if (ls_reinit) then
+          !! Ensure levelset is valid in region of interface
+          call reinit_ls(phi1(:,:,:,ilevelset), 5, .true.)
+       endif
        call update_fluid_properties(rho1, mu1, phi1)
     endif
     
