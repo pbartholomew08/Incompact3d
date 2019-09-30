@@ -416,9 +416,11 @@ contains
     use variables, only : cifip6y, cisip6y, ciwip6y, cify6, cisy6, ciwy6
     use variables, only : cifip6z, cisip6z, ciwip6z, cifz6, cisz6, ciwz6
     use variables, only : sx, sy, sz
-    
+
+    use var, only : zero, one, two, three, pi
     use var, only : stfx1 => ta1, stfy1 => tb1, stfz1 => tc1, &
-         gradx_ls1 => td1, grady_ls1 => te1, gradz_ls1 => tf1, mag_grad_ls1 => tg1
+         gradx_ls1 => td1, grady_ls1 => te1, gradz_ls1 => tf1, mag_grad_ls1 => tg1, &
+         kdelta => tg1
     use var, only : levelset2 => ta2, grady_ls2 => tb2, gradz_ls2 => tc2
     use var, only : levelset3 => ta3, gradz_ls3 => tb3
     use var, only : ux1, uy2, uz3
@@ -431,8 +433,10 @@ contains
 
     use div, only : divergence
 
+    use param, only : dx, dy, dz
     use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
     use param, only : nrhotime
+    use param, only : interface_thickness
 
     use weno, only : weno5
     
@@ -448,6 +452,10 @@ contains
     !! LOCAL
     real(mytype), parameter :: macheps = epsilon(1._mytype)
     integer :: nlock
+    integer :: i, j, k
+    real(mytype) :: alpha
+
+    alpha = interface_thickness * (dx * dy * dz)**(one / three)
 
     !! Fist, compute grad(ls) and normalise
     call transpose_x_to_y(levelset1, levelset2)
@@ -477,6 +485,34 @@ contains
     call transpose_y_to_x(ppi2,pp1,ph2)
     call interxpv(ppi1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
          nxmsize,xsize(1),xsize(2),xsize(3),1)
+
+    !! Recompute grad(ls) - memory will have been stomped on :(
+    call transpose_x_to_y(levelset1, levelset2)
+    call transpose_y_to_z(levelset2, levelset3)
+
+    call weno5 (gradz_ls3, levelset3, uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
+    call weno5 (grady_ls2, levelset2, uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
+    call weno5 (gradx_ls1, levelset1, ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
+
+    call transpose_z_to_y(gradz_ls3, gradz_ls2)
+    call transpose_y_to_x(grady_ls2, grady_ls1)
+    call transpose_y_to_x(gradz_ls2, gradz_ls1)
+
+    !! Compute forcing
+    do k = 1, xsize(3)
+       do j = 1, xsize(2)
+          do i = 1, xsize(1)
+             if (abs(levelset1(i, j, k)).lt.alpha) then
+                kdelta(i, j, k) = (one / (two * alpha)) * (one + cos(pi * levelset1(i, j, k) / alpha))
+             else
+                kdelta(i, j, k) = zero
+             endif
+          enddo
+       enddo
+    enddo
+    stfx1(:,:,:) = ppi1(:,:,:) * kdelta(:,:,:) * gradx_ls1(:,:,:)
+    stfy1(:,:,:) = ppi1(:,:,:) * kdelta(:,:,:) * grady_ls1(:,:,:)
+    stfz1(:,:,:) = ppi1(:,:,:) * kdelta(:,:,:) * gradz_ls1(:,:,:)
     
     !! Add contribution to forcing terms
     dux1(:,:,:) = dux1(:,:,:) + stfx1(:,:,:) / rho1(:,:,:,1)
