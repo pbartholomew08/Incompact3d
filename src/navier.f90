@@ -66,6 +66,7 @@ contains
 
        IF ((itime.GT.1).AND.(itr.EQ.1)) THEN
           pp3(:,:,:,1) = two * pp3(:,:,:,2) - pp3(:,:,:,3)
+          CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
        ENDIF
     ENDIF
 
