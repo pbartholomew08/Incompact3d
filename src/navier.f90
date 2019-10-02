@@ -65,8 +65,11 @@ contains
        dv3(:,:,:) = pp3(:,:,:,1)
 
        IF ((itime.GT.1).AND.(itr.EQ.1)) THEN
+          !! Extrapolate pressure
           pp3(:,:,:,1) = two * pp3(:,:,:,2) - pp3(:,:,:,3)
           CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
+          
+          pp3(:,:,:,3) = pp3(:,:,:,2)
        ENDIF
     ENDIF
 
@@ -99,14 +102,6 @@ contains
 
        poissiter = poissiter + 1
     ENDDO
-
-    IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
-       IF (itr.EQ.1) THEN
-          DO piter = npress, 2, -1
-             pp3(:,:,:,piter) = pp3(:,:,:,piter - 1)
-          ENDDO
-       ENDIF
-    ENDIF
 
     IF (ilmn.AND.ivarcoeff) THEN
        !! Variable-coefficient Poisson solver works on div(u), not div(rho u)
