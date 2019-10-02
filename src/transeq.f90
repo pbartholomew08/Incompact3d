@@ -324,6 +324,10 @@ CONTAINS
     !! Additional forcing
     call momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1)
 
+    if (ifreesurface) then
+       call surface_tension_force(dux1, duy1, duz1, rho1, phi1(:,:,:,ilevelset))
+    endif
+
     if (itrip == 1) then
        call tripping(tb1,td1)
        if (nrank == 0) print *,'TRIPPING KTH STYLE!!'

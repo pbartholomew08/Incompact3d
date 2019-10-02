@@ -435,7 +435,7 @@ contains
 
     use param, only : dx, dy, dz
     use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
-    use param, only : nrhotime
+    use param, only : ntime, nrhotime
     use param, only : interface_thickness
 
     use weno, only : weno5
@@ -447,15 +447,17 @@ contains
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime), intent(in) :: rho1
 
     !! INOUT
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(inout) :: dux1, duy1, duz1
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime), intent(inout) :: dux1, duy1, duz1
 
     !! LOCAL
     real(mytype), parameter :: macheps = epsilon(1._mytype)
     integer :: nlock
     integer :: i, j, k
     real(mytype) :: alpha
+    real(mytype) :: sigma ! Surface tension coefficient
 
     alpha = interface_thickness * (dx * dy * dz)**(one / three)
+    sigma = zero !one / 0.4_mytype
 
     !! Fist, compute grad(ls) and normalise
     call transpose_x_to_y(levelset1, levelset2)
@@ -510,14 +512,14 @@ contains
           enddo
        enddo
     enddo
-    stfx1(:,:,:) = ppi1(:,:,:) * kdelta(:,:,:) * gradx_ls1(:,:,:)
-    stfy1(:,:,:) = ppi1(:,:,:) * kdelta(:,:,:) * grady_ls1(:,:,:)
-    stfz1(:,:,:) = ppi1(:,:,:) * kdelta(:,:,:) * gradz_ls1(:,:,:)
+    stfx1(:,:,:) = sigma * ppi1(:,:,:) * kdelta(:,:,:) * gradx_ls1(:,:,:)
+    stfy1(:,:,:) = sigma * ppi1(:,:,:) * kdelta(:,:,:) * grady_ls1(:,:,:)
+    stfz1(:,:,:) = sigma * ppi1(:,:,:) * kdelta(:,:,:) * gradz_ls1(:,:,:)
     
     !! Add contribution to forcing terms
-    dux1(:,:,:) = dux1(:,:,:) + stfx1(:,:,:) / rho1(:,:,:,1)
-    duy1(:,:,:) = duy1(:,:,:) + stfy1(:,:,:) / rho1(:,:,:,1)
-    duz1(:,:,:) = duz1(:,:,:) + stfz1(:,:,:) / rho1(:,:,:,1)
+    dux1(:,:,:,1) = dux1(:,:,:,1) + stfx1(:,:,:) / rho1(:,:,:,1)
+    duy1(:,:,:,1) = duy1(:,:,:,1) + stfy1(:,:,:) / rho1(:,:,:,1)
+    duz1(:,:,:,1) = duz1(:,:,:,1) + stfz1(:,:,:) / rho1(:,:,:,1)
     
   end subroutine surface_tension_force
 
