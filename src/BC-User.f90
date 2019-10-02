@@ -59,13 +59,13 @@ contains
        !INIT FOR G AND U=MEAN FLOW + NOISE
        do k=1,xsize(3)
           do j=1,xsize(2)
-             y = real(j + xstart(2) - 2, mytype) * dy - half * yly
+             y = real(j + xstart(2) - 2, mytype) * dy - (one / four) * yly
              do i=1,xsize(1)
                 x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
 
                 r = sqrt((x - x0)**2 + (y - y0)**2)
                 
-                ux1(i,j,k) = one
+                ux1(i,j,k) = u1
                 uy1(i,j,k) = zero
                 uz1(i,j,k) = zero
 
@@ -73,19 +73,19 @@ contains
 
                 !! Circle
                 if (r.lt.0.5_mytype) then
-                   phi1(i, j, k, :) = one !(0.5_mytype - r)
+                   phi1(i, j, k, :) = (0.5_mytype - r)
                 else if (r.gt.0.5_mytype) then
-                   phi1(i, j, k, :) = -one !-(r - 0.5_mytype)
+                   phi1(i, j, k, :) = -(r - 0.5_mytype)
                 else
                    phi1(i, j, k, :) = zero
                 endif
 
-                !! Square
-                if ((abs(x).lt.0.5_mytype).and.(abs(y).lt.0.5_mytype)) then
-                   phi1(i, j, k, :) = one
-                else
-                   phi1(i, j, k, :) = -one
-                endif
+                ! !! Square
+                ! if ((abs(x).lt.0.5_mytype).and.(abs(y).lt.0.5_mytype)) then
+                !    phi1(i, j, k, :) = one
+                ! else
+                !    phi1(i, j, k, :) = -one
+                ! endif
              enddo
           enddo
        enddo
