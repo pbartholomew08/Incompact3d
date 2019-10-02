@@ -356,7 +356,13 @@ subroutine parameter(input_i3d)
      npress = 1
   endif
 
-  if (.not.ifreesurface) then
+  if (ifreesurface) then
+     if (ri(ilevelset).gt.zero) then
+        Fr = sqrt(one / ri(ilevelset))
+     else
+        Fr = zero
+     endif
+  else
      ilevelset = -1
   endif
 
