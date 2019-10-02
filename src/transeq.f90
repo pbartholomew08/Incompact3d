@@ -3,7 +3,7 @@ MODULE transeq
   use weno, only : weno5
 
   PRIVATE
-  PUBLIC :: calculate_transeq_rhs
+  PUBLIC :: calculate_transeq_rhs, update_freesurface
 
 CONTAINS
 
@@ -63,6 +63,8 @@ CONTAINS
     USE les, only : compute_SGS
 
     USE case, ONLY : momentum_forcing
+
+    USE freesurface, ONLY : surface_tension_force
 
     implicit none
 
@@ -314,7 +316,9 @@ CONTAINS
        call momentum_gravity(dux1, duy1, duz1, rho1(:,:,:,1) - one, one / Fr**2)
     endif
     do is = 1, numscalar
-       call momentum_gravity(dux1, duy1, duz1, phi1(:,:,:,is), ri(is))
+       if (is.ne.ilevelset) then
+          call momentum_gravity(dux1, duy1, duz1, phi1(:,:,:,is), ri(is))
+       endif
     enddo
 
     !! Additional forcing
@@ -606,7 +610,6 @@ CONTAINS
        enddo
     enddo
 
-
   end subroutine momentum_gravity
 
   subroutine scalar_transport_eq(dphi1, rho1, ux1, phi1, schmidt, ihyperbolic)
@@ -735,20 +738,19 @@ CONTAINS
           !! For mass fractions enforce primary species Y_p = 1 - sum_s Y_s
           !! So don't solve a transport equation
           
-          if (is.eq.ilevelset) then
-             ihyperbolic = .TRUE.
-          else
+          if (is.ne.ilevelset) then
              ihyperbolic = .FALSE.
-          endif
-          call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is), ihyperbolic)
+             call scalar_transport_eq(dphi1(:,:,:,:,is), rho1, ux1, phi1(:,:,:,is), sc(is), ihyperbolic)
 
-          if (uset(is).ne.zero) then
-             call scalar_settling(dphi1, phi1(:,:,:,is), is)
+             if (uset(is).ne.zero) then
+                call scalar_settling(dphi1, phi1(:,:,:,is), is)
+             endif
+
+             ! If LES modelling is enabled, add the SGS stresses
+             if (ilesmod.ne.0.and.jles.le.2.and.jles.gt.0) then
+                dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) + sgsphi1(:,:,:,is)
+             endif
           endif
-        ! If LES modelling is enabled, add the SGS stresses
-        if (ilesmod.ne.0.and.jles.le.2.and.jles.gt.0) then
-           dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) + sgsphi1(:,:,:,is)
-        endif
        endif
 
     end do !loop numscalar
@@ -886,5 +888,37 @@ CONTAINS
     ENDIF
 
   ENDSUBROUTINE continuity_rhs_eq
+
+  subroutine update_freesurface(rho1, mu1, levelset1)
+
+    use decomp_2d, only : mytype, xsize
+
+    use var, only : ux1
+    use var, only : dlevelset1 => dphi1
+    use var, only : nrhotime
+    use var, only : ilevelset
+    use var, only : sc
+
+    use freesurface, only : update_fluid_properties
+    use time_integrators, only : intt
+
+    implicit none
+
+    !!INOUT
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: levelset1
+
+    !! OUTPUT
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(out) :: mu1
+
+    call scalar_transport_eq(dlevelset1(:,:,:,:,ilevelset), rho1, ux1, levelset1, &
+         sc(ilevelset), .true.)
+    call intt(levelset1, dlevelset1(:,:,:,:,ilevelset))
+
+    ! CALL reinit_ls(levelset1(:,:,:), 2, .false.)
+
+    call update_fluid_properties(rho1, mu1, levelset1)
+    
+  endsubroutine update_freesurface
 
 END MODULE transeq

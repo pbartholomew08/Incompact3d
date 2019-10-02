@@ -4,9 +4,9 @@ module navier
 
   private
 
-  public :: solve_poisson, divergence, calc_divu_constraint
+  public :: solve_poisson, calc_divu_constraint
   public :: pre_correc, cor_vel
-  public :: lmn_t_to_rho_trans, momentum_to_velocity, velocity_to_momentum
+  public :: momentum_to_velocity, velocity_to_momentum
 
 contains
   
@@ -114,64 +114,6 @@ contains
     ENDIF
 
   END SUBROUTINE solve_poisson
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!
-  !!  SUBROUTINE: lmn_t_to_rho_trans
-  !! DESCRIPTION: Converts the temperature transient to the density transient
-  !!              term. This is achieved by application of EOS and chain rule.
-  !!      INPUTS: dtemp1 - the RHS of the temperature equation.
-  !!                rho1 - the density field.
-  !!     OUTPUTS:  drho1 - the RHS of the density equation.
-  !!      AUTHOR: Paul Bartholomew
-  !!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  SUBROUTINE lmn_t_to_rho_trans(drho1, dtemp1, rho1, dphi1, phi1)
-
-    USE decomp_2d
-    USE param, ONLY : zero
-    USE param, ONLY : imultispecies, massfrac, mol_weight
-    USE param, ONLY : ntime
-    USE var, ONLY : numscalar
-    USE var, ONLY : ta1, tb1
-
-    IMPLICIT NONE
-
-    !! INPUTS
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: dtemp1, rho1
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), ntime, numscalar) :: dphi1
-
-    !! OUTPUTS
-    REAL(mytype), INTENT(OUT), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drho1
-
-    !! LOCALS
-    INTEGER :: is
-
-    drho1(:,:,:) = zero
-
-    IF (imultispecies) THEN
-       DO is = 1, numscalar
-          IF (massfrac(is)) THEN
-             drho1(:,:,:) = drho1(:,:,:) - dphi1(:,:,:,1,is) / mol_weight(is)
-          ENDIF
-       ENDDO
-
-       ta1(:,:,:) = zero !! Mean molecular weight
-       DO is = 1, numscalar
-          IF (massfrac(is)) THEN
-             ta1(:,:,:) = ta1(:,:,:) + phi1(:,:,:,is) / mol_weight(is)
-          ENDIF
-       ENDDO
-       drho1(:,:,:) = ta1(:,:,:) * drho1(:,:,:) !! XXX ta1 is the inverse molecular weight
-    ENDIF
-
-    CALL calc_temp_eos(ta1, rho1, phi1, tb1, xsize(1), xsize(2), xsize(3))
-    drho1(:,:,:) = drho1(:,:,:) - dtemp1(:,:,:) / ta1(:,:,:)
-
-    drho1(:,:,:) = rho1(:,:,:) * drho1(:,:,:)
-
-  ENDSUBROUTINE lmn_t_to_rho_trans
 
   !********************************************************************
   !subroutine COR_VEL

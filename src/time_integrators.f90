@@ -12,7 +12,7 @@ module time_integrators
   implicit none
 
   private
-  public :: int_time
+  public :: int_time, intt
 
 contains
 
@@ -187,7 +187,7 @@ contains
        ENDIF
 
        DO is = 1, numscalar
-          IF (is.NE.primary_species) THEN
+          IF ((is.NE.primary_species).and.(is.ne.ilevelset)) THEN
              CALL intt(phi1(:,:,:,is), dphi1(:,:,:,:,is))
 
              DO k = 1, xsize(3)
@@ -199,9 +199,6 @@ contains
                 ENDDO
              ENDDO
 
-             IF ((is.EQ.ilevelset).AND.ls_reinit) THEN
-                CALL reinit_ls(phi1(:,:,:,is), 2, .false.)
-             ENDIF
           ENDIF
        ENDDO
 
@@ -331,6 +328,64 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!
+  !!  SUBROUTINE: lmn_t_to_rho_trans
+  !! DESCRIPTION: Converts the temperature transient to the density transient
+  !!              term. This is achieved by application of EOS and chain rule.
+  !!      INPUTS: dtemp1 - the RHS of the temperature equation.
+  !!                rho1 - the density field.
+  !!     OUTPUTS:  drho1 - the RHS of the density equation.
+  !!      AUTHOR: Paul Bartholomew
+  !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  SUBROUTINE lmn_t_to_rho_trans(drho1, dtemp1, rho1, dphi1, phi1)
+
+    USE decomp_2d
+    USE param, ONLY : zero
+    USE param, ONLY : imultispecies, massfrac, mol_weight
+    USE param, ONLY : ntime
+    USE var, ONLY : numscalar
+    USE var, ONLY : ta1, tb1
+
+    IMPLICIT NONE
+
+    !! INPUTS
+    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: dtemp1, rho1
+    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
+    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), ntime, numscalar) :: dphi1
+
+    !! OUTPUTS
+    REAL(mytype), INTENT(OUT), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drho1
+
+    !! LOCALS
+    INTEGER :: is
+
+    drho1(:,:,:) = zero
+
+    IF (imultispecies) THEN
+       DO is = 1, numscalar
+          IF (massfrac(is)) THEN
+             drho1(:,:,:) = drho1(:,:,:) - dphi1(:,:,:,1,is) / mol_weight(is)
+          ENDIF
+       ENDDO
+
+       ta1(:,:,:) = zero !! Mean molecular weight
+       DO is = 1, numscalar
+          IF (massfrac(is)) THEN
+             ta1(:,:,:) = ta1(:,:,:) + phi1(:,:,:,is) / mol_weight(is)
+          ENDIF
+       ENDDO
+       drho1(:,:,:) = ta1(:,:,:) * drho1(:,:,:) !! XXX ta1 is the inverse molecular weight
+    ENDIF
+
+    CALL calc_temp_eos(ta1, rho1, phi1, tb1, xsize(1), xsize(2), xsize(3))
+    drho1(:,:,:) = drho1(:,:,:) - dtemp1(:,:,:) / ta1(:,:,:)
+
+    drho1(:,:,:) = rho1(:,:,:) * drho1(:,:,:)
+
+  ENDSUBROUTINE lmn_t_to_rho_trans
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!
   !!  SUBROUTINE: int_time_temperature
   !! DESCRIPTION: Integrates the temperature equation in time
   !!      INPUTS: drho1 - the RHS(s) of the temperature equation.
@@ -344,7 +399,6 @@ contains
     USE variables
     USE decomp_2d
 
-    USE navier, ONLY : lmn_t_to_rho_trans
     USE var, ONLY : tc1, tb1
 
     implicit none
