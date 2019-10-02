@@ -7,7 +7,8 @@ module freesurface
   real(mytype), save, allocatable, dimension(:,:,:) :: S1
 
   private
-  public :: reinit_ls, update_fluid_properties
+  public :: reinit_ls, update_fluid_properties, &
+       surface_tension_force
 
 contains
 
