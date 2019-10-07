@@ -118,7 +118,7 @@ CONTAINS
     call transpose_x_to_y(tb1,tb2)
     call transpose_x_to_y(tc1,tc2)
 
-    if (ilmn) then
+    if (ilmn.or.ifreesurface) then
        call transpose_x_to_y(rho1(:,:,:,1),rho2)
     else
        rho2(:,:,:) = one
@@ -155,7 +155,7 @@ CONTAINS
     call transpose_y_to_z(tb2,tb3)
     call transpose_y_to_z(tc2,tc3)
 
-    if (ilmn) then
+    if (ilmn.or.ifreesurface) then
        call transpose_y_to_z(rho2,rho3)
     else
        rho3(:,:,:) = one
