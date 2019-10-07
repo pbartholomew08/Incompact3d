@@ -896,12 +896,15 @@ CONTAINS
   subroutine update_freesurface(rho1, mu1, levelset1)
 
     use decomp_2d, only : mytype, xsize
+    use decomp_2d, only : transpose_x_to_y, transpose_y_to_z
 
-    use var, only : ux1
+    use var, only : ux1, uy1, uz1, uy2, uz2, uz3
     use var, only : dlevelset1 => dphi1
     use var, only : nrhotime
     use var, only : ilevelset
     use var, only : sc
+
+    use param, only : itime
 
     use freesurface, only : update_fluid_properties
     use time_integrators, only : intt
@@ -914,6 +917,12 @@ CONTAINS
 
     !! OUTPUT
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(out) :: mu1
+
+    if (itime.eq.1) then
+       call transpose_x_to_y(uy1, uy2)
+       call transpose_x_to_y(uz1, uz2)
+       call transpose_y_to_z(uz2, uz3)
+    endif
 
     call scalar_transport_eq(dlevelset1(:,:,:,:,ilevelset), rho1, ux1, levelset1, &
          sc(ilevelset), .true.)
