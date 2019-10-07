@@ -765,7 +765,8 @@ contains
 
     !! LOCALS
     INTEGER :: ierr
-    REAL(mytype) :: errloc, errglob, divup3norm
+    REAL(mytype) :: errloc, errglob
+    REAL(mytype), SAVE :: divup3norm
 
     IF (poissiter.EQ.0) THEN
        errloc = SUM(dv3**2)
@@ -841,7 +842,8 @@ contains
 
     !! LOCALS
     INTEGER :: nlock, ierr
-    REAL(mytype) :: rhomin, rho0
+    REAL(mytype) :: rhomin
+    REAL(mytype), SAVE :: rho0
 
     IF (poissiter.EQ.0) THEN
        !! Compute rho0
