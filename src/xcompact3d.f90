@@ -38,7 +38,7 @@ program xcompact3d
 
         call calc_divu_constraint(divu3,rho1,phi1)
         call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
-        call cor_vel(rho1,ux1,uy1,uz1,px1,py1,pz1)
+        call cor_vel(rho1,ux1,uy1,uz1,px1,py1,pz1,pp3)
 
         call momentum_to_velocity(rho1,ux1,uy1,uz1)
         !! XXX N.B. from this point, X-pencil velocity arrays contain velocity.

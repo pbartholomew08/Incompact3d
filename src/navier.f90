@@ -68,7 +68,8 @@ contains
           !! Extrapolate pressure
           pp3(:,:,:,1) = two * pp3(:,:,:,2) - pp3(:,:,:,3)
           CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
-          
+
+          !! Store previous pressure field
           pp3(:,:,:,3) = pp3(:,:,:,2)
        ENDIF
     ENDIF
@@ -80,6 +81,9 @@ contains
           CALL test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
 
           IF (.NOT.converged) THEN
+             !! Store current pressure field
+             pp3(:,:,:,2) = pp3(:,:,:,1)
+             
              !! Evaluate additional RHS terms
              CALL calc_varcoeff_rhs(pp3(:,:,:,1), rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, &
                   poissiter)
@@ -119,26 +123,51 @@ contains
   ! output : ux,uy,uz
   !written by SL 2018
   !********************************************************************
-  subroutine cor_vel (rho,ux,uy,uz,px,py,pz)
+  subroutine cor_vel (rho,ux,uy,uz,px,py,pz,pp3)
 
+    USE MPI
+    
     USE decomp_2d
     USE variables
     USE param
 
+    USE var, only : nzmsize
+
     implicit none
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: px,py,pz
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(inout) :: px,py,pz
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime),intent(in) :: rho
+    REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress), intent(in) :: pp3
+
+    integer :: ierr
+    real(mytype) :: rhomin, rho0
 
     if (.not.ifreesurface) then
        ux(:,:,:)=ux(:,:,:)-px(:,:,:)
        uy(:,:,:)=uy(:,:,:)-py(:,:,:)
        uz(:,:,:)=uz(:,:,:)-pz(:,:,:)
     else
-       ux(:,:,:)=ux(:,:,:)-px(:,:,:)/rho(:,:,:,1)
-       uy(:,:,:)=uy(:,:,:)-py(:,:,:)/rho(:,:,:,1)
-       uz(:,:,:)=uz(:,:,:)-pz(:,:,:)/rho(:,:,:,1)
+       !! Compute rho0
+       rhomin = minval(rho)
+
+       call MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
+
+       !! First correct according to new pressure gradient
+       ux(:,:,:) = ux(:,:,:) - px(:,:,:) / rho0
+       uy(:,:,:) = uy(:,:,:) - py(:,:,:) / rho0
+       uz(:,:,:) = uz(:,:,:) - pz(:,:,:) / rho0
+
+       !! Get previous iter pressure gradient
+       CALL gradp(px,py,pz,pp3(:,:,:,2))
+
+       !! Not correct with the previous pressure gradient
+       ux(:,:,:)=ux(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * px(:,:,:)
+       uy(:,:,:)=uy(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * py(:,:,:)
+       uz(:,:,:)=uz(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * pz(:,:,:)
+
+       !! Reset pressure gradient
+       CALL gradp(px,py,pz,pp3(:,:,:,1))
     endif
 
     return
@@ -770,10 +799,6 @@ contains
           IF (nrank.EQ.0) THEN
              PRINT *, "- Converged: rtol"
           ENDIF
-       ENDIF
-
-       IF (.NOT.converged) THEN
-          pp3(:,:,:,2) = pp3(:,:,:,1)
        ENDIF
     ENDIF
 
