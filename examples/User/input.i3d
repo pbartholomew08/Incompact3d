@@ -13,41 +13,43 @@ p_col=0               ! Column partition
 
 ! Mesh
 nx=65                ! X-direction nodes
-ny=129                ! Y-direction nodes
-nz=8                  ! Z-direction nodes
+ny=65                ! Y-direction nodes
+nz=65                  ! Z-direction nodes
 istret = 0            ! y mesh refinement (0:no, 1:center, 2:both sides, 3:bottom)
 beta = 0.3            ! Refinement parameter (beta)
 
 ! Domain
-xlx = 5.     ! Lx (Size of the box in x-direction)
-yly = 10.     ! Ly (Size of the boy in y-direction)
-zlz = 0.25 ! Lz (Size of the boz in z-direction)
+xlx = 1.     ! Lx (Size of the box in x-direction)
+yly = 1.     ! Ly (Size of the boy in y-direction)
+zlz = 1.     ! Lz (Size of the boz in z-direction)
 
 ! Gravity
-gravy = -1.0
+gravy = -0.0
 
 ! Boundary conditions
-nclx1 = 1
-nclxn = 1
+nclx1 = 2
+nclxn = 2
 ncly1 = 2
 nclyn = 2
-nclz1 = 0
-nclzn = 0
+nclz1 = 2
+nclzn = 2
 
 ! Flow parameters
 iin = 1               ! Inflow conditions (1: classic, 2: turbinit)
-re = 100.            ! nu=1/re (Kinematic Viscosity)
+re = 65. !217.            ! nu=1/re (Kinematic Viscosity)
 u1 = 0.               ! u1 (max velocity) (for inflow condition)
-u2 = 1.               ! u2 (min velocity) (for inflow condition)
+u2 = 0.               ! u2 (min velocity) (for inflow condition)
 init_noise  = 0.0     ! Turbulence intensity (1=100%) !! Initial condition
 inflow_noise = 0.0    ! Turbulence intensity (1=100%) !! Inflow condition
-dens1 = 0.025
+dens1 = 1. !1.21e-3
 dens2 = 1.
+visc1 = 2.45e-4
+visc2 = 1.
 
 ! Time stepping
-dt = 0.0005       ! Time step
+dt = 0.00003125       ! Time step
 ifirst = 1            ! First iteration
-ilast = 10000          ! Last iteration
+ilast = 1 !32000 !600000 !10000          ! Last iteration
 
 ! Enable modelling tools
 ilesmod=0            ! if 0 then DNS
@@ -87,7 +89,7 @@ cnu = 0.44               ! Ratio between hypervisvosity at k_m=2/3pi and k_c= pi
 ! Basic I/O
 irestart = 0          ! Read initial flow field ?
 icheckpoint = 5000    ! Frequency for writing backup file
-ioutput = 1 !200         ! Frequency for visualization
+ioutput = 1 !3200 !2000          ! Frequency for visualization
 nvisu = 1             ! Size for visualisation collection
 
 /End
@@ -106,7 +108,7 @@ nstat = 1             ! Size arrays for statistic collection
 !=================
 
 sc(1) = 1.0
-ri(1) = 0.975
+ri(1) = 1.0
 
 /End
 

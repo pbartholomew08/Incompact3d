@@ -35,7 +35,7 @@ contains
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
 
-    real(mytype) :: x, y, r, x0, y0
+    real(mytype) :: x, y, z, r, x0, y0, z0, r0
     integer :: k,j,i,is
 
     if (iscalar==1) then
@@ -52,30 +52,36 @@ contains
 
     !! Set the circle centre
     x0 = zero
-    y0 = zero
+    y0 = zero !-yly / four
+    z0 = zero
+
+    !! Set the circle radius
+    r0 = one / four
     
     if (iin.eq.1) then !generation of a random noise
 
        !INIT FOR G AND U=MEAN FLOW + NOISE
        do k=1,xsize(3)
+          z = real(k + xstart(3) - 2, mytype) * dz - half * zlz
           do j=1,xsize(2)
-             y = real(j + xstart(2) - 2, mytype) * dy - (one / four) * yly
+             y = real(j + xstart(2) - 2, mytype) * dy - half * yly
              do i=1,xsize(1)
                 x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
 
-                r = sqrt((x - x0)**2 + (y - y0)**2)
+                r = sqrt((x - x0)**2 + (y - y0)**2 + (z - z0)**2) !! Sphere
+                ! r = sqrt((x - x0)**2 + (y - y0)**2) !! Cylinder
                 
                 ux1(i,j,k) = u1
-                uy1(i,j,k) = zero
+                uy1(i,j,k) = u2
                 uz1(i,j,k) = zero
 
                 rho1(i,j,k,1) = one
 
                 !! Circle
-                if (r.lt.0.5_mytype) then
-                   phi1(i, j, k, :) = (0.5_mytype - r)
-                else if (r.gt.0.5_mytype) then
-                   phi1(i, j, k, :) = -(r - 0.5_mytype)
+                if (r.lt.r0) then
+                   phi1(i, j, k, :) = (r0 - r)
+                else if (r.gt.r0) then
+                   phi1(i, j, k, :) = -(r - r0)
                 else
                    phi1(i, j, k, :) = zero
                 endif
@@ -86,6 +92,9 @@ contains
                 ! else
                 !    phi1(i, j, k, :) = -one
                 ! endif
+
+                !! Free surface
+                phi1(i, j, k, :) = y
              enddo
           enddo
        enddo
@@ -111,18 +120,36 @@ contains
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi
 
     IF (nclx1.EQ.2) THEN
+       bxx1(:,:) = zero
+       bxy1(:,:) = zero
+       bxz1(:,:) = zero
     ENDIF
     IF (nclxn.EQ.2) THEN
+       bxxn(:,:) = zero
+       bxyn(:,:) = zero
+       bxzn(:,:) = zero
     ENDIF
 
     IF (ncly1.EQ.2) THEN
+       byx1(:,:) = zero
+       byy1(:,:) = u2
+       byz1(:,:) = zero
     ENDIF
     IF (nclyn.EQ.2) THEN
+       byxn(:,:) = zero
+       byyn(:,:) = u2
+       byzn(:,:) = zero
     ENDIF
 
     IF (nclz1.EQ.2) THEN
+       bzx1(:,:) = zero
+       bzy1(:,:) = zero
+       bzz1(:,:) = zero
     ENDIF
     IF (nclzn.EQ.2) THEN
+       bzxn(:,:) = zero
+       bzyn(:,:) = zero
+       bzzn(:,:) = zero
     ENDIF
 
   end subroutine boundary_conditions_user
