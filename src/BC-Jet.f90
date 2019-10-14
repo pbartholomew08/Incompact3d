@@ -823,13 +823,13 @@ contains
   !! DESCRIPTION: Applies a fringe/sponge region at the outlet.
   !!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  SUBROUTINE momentum_forcing_jet(dux1, duy1, duz1, rho1, ux1, uy1, uz1)
+  SUBROUTINE momentum_forcing_jet(sx1, sy1, sz1, rho1, ux1, uy1, uz1)
 
     IMPLICIT NONE
 
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: dux1, duy1, duz1
+    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: sx1, sy1, sz1
 
     INTEGER :: i, j, k
     REAL(mytype) :: y, yfringe
@@ -857,11 +857,11 @@ contains
              DO i = 1, xsize(1)
 
                 !! uy -> mean influx = outflow
-                duy1(i, j, k, 1) = duy1(i, j, k, 1) + f * rho1(i, j, k, 1) * (outflow - uy1(i, j, k))
+                sy1(i, j, k) = sy1(i, j, k) + f * rho1(i, j, k, 1) * (outflow - uy1(i, j, k))
 
                 !! ux,uz -> zero
-                dux1(i, j, k, 1) = dux1(i, j, k, 1) + f * rho1(i, j, k, 1) * (zero - ux1(i, j, k))
-                duz1(i, j, k, 1) = duz1(i, j, k, 1) + f * rho1(i, j, k, 1) * (zero - uz1(i, j, k))
+                sx1(i, j, k) = sx1(i, j, k) + f * rho1(i, j, k, 1) * (zero - ux1(i, j, k))
+                sz1(i, j, k) = sz1(i, j, k) + f * rho1(i, j, k, 1) * (zero - uz1(i, j, k))
 
              ENDDO
           ENDIF

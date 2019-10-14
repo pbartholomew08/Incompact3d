@@ -344,17 +344,17 @@ contains
   !! DESCRIPTION: Applies rotation for t < spinup_time.
   !!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  SUBROUTINE momentum_forcing_channel(dux1, duy1, ux1, uy1)
+  SUBROUTINE momentum_forcing_channel(sx1, sy1, ux1, uy1)
 
     IMPLICIT NONE
 
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: dux1, duy1
+    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: sx1, sy1
 
     if (itime.lt.spinup_time) then
        if (nrank==0) print *,'Rotating turbulent channel at speed ',wrotation
-       dux1(:,:,:,1) = dux1(:,:,:,1) - wrotation*uy1(:,:,:)
-       duy1(:,:,:,1) = duy1(:,:,:,1) + wrotation*ux1(:,:,:)
+       sx1(:,:,:) = sx1(:,:,:) - wrotation*uy1(:,:,:)
+       sy1(:,:,:) = sy1(:,:,:) + wrotation*ux1(:,:,:)
     endif
 
   ENDSUBROUTINE momentum_forcing_channel

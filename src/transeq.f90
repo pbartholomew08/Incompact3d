@@ -79,6 +79,7 @@ CONTAINS
 
     integer :: i,j,k,is
     real(mytype) :: rhocons
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: sx1, sy1, sz1
 
     if (ifreesurface) then
        rhocons = zero
@@ -311,22 +312,32 @@ CONTAINS
        duz1(:,:,:,1) = duz1(:,:,:,1) + sgsz1(:,:,:)
     endif
 
+    !! Zero out source terms
+    sx1(:,:,:) = zero; sy1(:,:,:) = zero; sz1(:,:,:) = zero
+
     !! Gravity
     if ((Fr**2).gt.zero) then
-       call momentum_gravity(dux1, duy1, duz1, rho1(:,:,:,1) - one, one / Fr**2)
+       call momentum_gravity(sx1, sy1, sz1, rho1(:,:,:,1) - one, one / Fr**2)
     endif
     do is = 1, numscalar
        if (is.ne.ilevelset) then
-          call momentum_gravity(dux1, duy1, duz1, phi1(:,:,:,is), ri(is))
+          call momentum_gravity(sx1, sy1, sz1, phi1(:,:,:,is), ri(is))
        endif
     enddo
 
     !! Additional forcing
-    call momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1)
+    call momentum_forcing(sx1, sy1, sz1, rho1, ux1, uy1, uz1)
 
     if (ifreesurface) then
-       call surface_tension_force(dux1, duy1, duz1, rho1, phi1(:,:,:,ilevelset))
+       call surface_tension_force(sx1, sy1, sz1, rho1, phi1(:,:,:,ilevelset))
     endif
+
+    ! call source_smoothing(sx1, sy1, sz1, rho1)
+    ! call calcq(sx1, sy1, sz1) ! Computes a pseudo pressure field to balance source terms
+
+    dux1(:,:,:,1) = dux1(:,:,:,1) + sx1(:,:,:)
+    duy1(:,:,:,1) = duy1(:,:,:,1) + sy1(:,:,:)
+    duz1(:,:,:,1) = duz1(:,:,:,1) + sz1(:,:,:)
 
     if (itrip == 1) then
        call tripping(tb1,td1)
@@ -479,7 +490,7 @@ CONTAINS
 
   end subroutine momentum_full_viscstress_tensor
 
-  subroutine momentum_gravity(dux1, duy1, duz1, peculiar_density1, richardson)
+  subroutine momentum_gravity(sx1, sy1, sz1, peculiar_density1, richardson)
 
     use decomp_2d
     use param
@@ -492,124 +503,127 @@ CONTAINS
     real(mytype), intent(in) :: richardson
 
     !! InOut
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime) :: dux1, duy1, duz1
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: sx1, sy1, sz1
 
     !! Locals
     integer :: istart, jstart, kstart
     integer :: iend, jend, kend
     integer :: i, j, k
 
-    !! X-gravity
-    if ((nclx1.eq.0).and.(nclxn.eq.0)) then
-       istart = 1
-       iend = xsize(1)
-    else
-       istart = 2
-       iend = xsize(1) - 1
-    endif
-    if ((xstart(2).eq.1).and.(ncly1.eq.2)) then
-       jstart = 2
-    else
-       jstart = 1
-    endif
-    if ((xend(2).eq.ny).and.(nclyn.eq.2)) then
-       jend = xsize(2) - 1
-    else
-       jend = xsize(2)
-    endif
-    if ((xstart(3).eq.1).and.(nclz1.eq.2)) then
-       kstart = 2
-    else
-       kstart = 1
-    endif
-    if ((xend(3).eq.nz).and.(nclzn.eq.2)) then
-       kend = xsize(3) - 1
-    else
-       kend = xsize(3)
-    endif
+    istart = 1; iend = xsize(1)
+    jstart = 1; jend = xsize(2)
+    kstart = 1; kend = xsize(3)
+    ! !! X-gravity
+    ! if ((nclx1.eq.0).and.(nclxn.eq.0)) then
+    !    istart = 1
+    !    iend = xsize(1)
+    ! else
+    !    istart = 2
+    !    iend = xsize(1) - 1
+    ! endif
+    ! if ((xstart(2).eq.1).and.(ncly1.eq.2)) then
+    !    jstart = 2
+    ! else
+    !    jstart = 1
+    ! endif
+    ! if ((xend(2).eq.ny).and.(nclyn.eq.2)) then
+    !    jend = xsize(2) - 1
+    ! else
+    !    jend = xsize(2)
+    ! endif
+    ! if ((xstart(3).eq.1).and.(nclz1.eq.2)) then
+    !    kstart = 2
+    ! else
+    !    kstart = 1
+    ! endif
+    ! if ((xend(3).eq.nz).and.(nclzn.eq.2)) then
+    !    kend = xsize(3) - 1
+    ! else
+    !    kend = xsize(3)
+    ! endif
 
     do k = kstart, kend
        do j = jstart, jend
           do i = istart, iend
-             dux1(i, j, k, 1) = dux1(i, j, k, 1) + peculiar_density1(i, j, k) * richardson * gravx
+             sx1(i, j, k) = sx1(i, j, k) + peculiar_density1(i, j, k) * richardson * gravx
           enddo
        enddo
     enddo
 
     !! Y-gravity
-    if (nclx1.eq.2) then
-       istart = 2
-    else
-       istart = 1
-    endif
-    if (nclxn.eq.2) then
-       iend = xsize(1) - 1
-    else
-       iend = xsize(1)
-    endif
-    if ((xstart(2).eq.1).and.(ncly1.ne.0)) then
-       jstart = 2
-    else
-       jstart = 1
-    endif
-    if ((xend(2).eq.ny).and.(nclyn.ne.0)) then
-       jend = xsize(2) - 1
-    else
-       jend = xsize(2)
-    endif
-    if ((xstart(3).eq.1).and.(nclz1.eq.2)) then
-       kstart = 2
-    else
-       kstart = 1
-    endif
-    if ((xend(3).eq.nz).and.(nclzn.eq.2)) then
-       kend = xsize(3) - 1
-    else
-       kend = xsize(3)
-    endif
+    ! if (nclx1.eq.2) then
+    !    istart = 2
+    ! else
+    !    istart = 1
+    ! endif
+    ! if (nclxn.eq.2) then
+    !    iend = xsize(1) - 1
+    ! else
+    !    iend = xsize(1)
+    ! endif
+    ! if ((xstart(2).eq.1).and.(ncly1.ne.0)) then
+    !    jstart = 2
+    ! else
+    !    jstart = 1
+    ! endif
+    ! if ((xend(2).eq.ny).and.(nclyn.ne.0)) then
+    !    jend = xsize(2) - 1
+    ! else
+    !    jend = xsize(2)
+    ! endif
+    ! if ((xstart(3).eq.1).and.(nclz1.eq.2)) then
+    !    kstart = 2
+    ! else
+    !    kstart = 1
+    ! endif
+    ! if ((xend(3).eq.nz).and.(nclzn.eq.2)) then
+    !    kend = xsize(3) - 1
+    ! else
+    !    kend = xsize(3)
+    ! endif
     do k = kstart, kend
        do j = jstart, jend
           do i = istart, iend
-             duy1(i, j, k, 1) = duy1(i, j, k, 1) + peculiar_density1(i, j, k) * richardson * gravy
+             sy1(i, j, k) = sy1(i, j, k) + peculiar_density1(i, j, k) * richardson * gravy
           enddo
        enddo
     enddo
 
     !! Z-gravity
-    if (nclx1.eq.2) then
-       istart = 2
-    else
-       istart = 1
-    endif
-    if (nclxn.eq.2) then
-       iend = xsize(1) - 1
-    else
-       iend = xsize(1)
-    endif
-    if ((xstart(2).eq.1).and.(ncly1.eq.2)) then
-       jstart = 2
-    else
-       jstart = 1
-    endif
-    if ((xend(2).eq.ny).and.(nclyn.eq.2)) then
-       jend = xsize(2) - 1
-    else
-       jend = xsize(2)
-    endif
-    if ((xstart(3).eq.1).and.(nclz1.ne.0)) then
-       kstart = 2
-    else
-       kstart = 1
-    endif
-    if ((xend(3).eq.nz).and.(nclzn.ne.0)) then
-       kend = xsize(3) - 1
-    else
-       kend = xsize(3)
-    endif
+    ! if (nclx1.eq.2) then
+    !    istart = 2
+    ! else
+    !    istart = 1
+    ! endif
+    ! if (nclxn.eq.2) then
+    !    iend = xsize(1) - 1
+    ! else
+    !    iend = xsize(1)
+    ! endif
+    ! if ((xstart(2).eq.1).and.(ncly1.eq.2)) then
+    !    jstart = 2
+    ! else
+    !    jstart = 1
+    ! endif
+    ! if ((xend(2).eq.ny).and.(nclyn.eq.2)) then
+    !    jend = xsize(2) - 1
+    ! else
+    !    jend = xsize(2)
+    ! endif
+    ! if ((xstart(3).eq.1).and.(nclz1.ne.0)) then
+    !    kstart = 2
+    ! else
+    !    kstart = 1
+    ! endif
+    ! if ((xend(3).eq.nz).and.(nclzn.ne.0)) then
+    !    kend = xsize(3) - 1
+    ! else
+    !    kend = xsize(3)
+    ! endif
     do k = kstart, kend
        do j = jstart, jend
           do i = istart, iend
-             duz1(i, j, k, 1) = duz1(i, j, k, 1) + peculiar_density1(i, j, k) * richardson * gravz
+             sz1(i, j, k) = sz1(i, j, k) + peculiar_density1(i, j, k) * richardson * gravz
           enddo
        enddo
     enddo

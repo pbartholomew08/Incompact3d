@@ -448,80 +448,265 @@ contains
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime), intent(in) :: rho1
 
     !! INOUT
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime), intent(inout) :: dux1, duy1, duz1
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(inout) :: sx1, sy1, sz1
 
     !! LOCAL
-    real(mytype), parameter :: macheps = epsilon(1._mytype)
+    real(mytype) :: normmag
     integer :: nlock
     integer :: i, j, k
     real(mytype) :: alpha
     real(mytype) :: sigma ! Surface tension coefficient
+    real(mytype) :: rhomean
+    real(mytype) :: x, y, z
 
     alpha = interface_thickness * (dx * dy * dz)**(one / three)
-    sigma = zero !one / 0.4_mytype
+    sigma = one / 121._mytype
 
-    !! Fist, compute grad(ls) and normalise
-    call transpose_x_to_y(levelset1, levelset2)
-    call transpose_y_to_z(levelset2, levelset3)
+    rhomean = (dens1 + dens2) / two !! Recommended by Dodd&Ferrante2014 for smoothing
 
-    call weno5 (gradz_ls3, levelset3, uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
-    call weno5 (grady_ls2, levelset2, uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
-    call weno5 (gradx_ls1, levelset1, ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
+    !! Fist, compute the normals (consistent with pressure gradient calculation)
+    if (itime.eq.ifirst) then
+       call alloc_x(nx1); call alloc_x(ny1); call alloc_x(nz1)
+    endif
 
-    call transpose_z_to_y(gradz_ls3, gradz_ls2)
-    call transpose_y_to_x(grady_ls2, grady_ls1)
-    call transpose_y_to_x(gradz_ls2, gradz_ls1)
-    
-    mag_grad_ls1(:,:,:) = sqrt(gradx_ls1**2 + grady_ls1**2 + gradz_ls1**2) + macheps
-    gradx_ls1(:,:,:) = gradx_ls1(:,:,:) / mag_grad_ls1(:,:,:)
-    grady_ls1(:,:,:) = grady_ls1(:,:,:) / mag_grad_ls1(:,:,:)
-    gradz_ls1(:,:,:) = gradz_ls1(:,:,:) / mag_grad_ls1(:,:,:)
+    ! Get levelset to p3 pencil
+    call interxvp(levelsetp1,levelset1,di1,sx,cifxp6,cisxp6,ciwxp6,&
+         xsize(1),nxmsize,xsize(2),xsize(3),1)
+    call transpose_x_to_y(levelsetp1,levelsetp12,ph4)
+    call interyvp(levelsetp2,levelsetp12,dipp2,sy,cifyp6,cisyp6,ciwyp6,&
+         (ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+    call transpose_y_to_z(levelsetp2,levelsetp23,ph3)
+    call interzvp(levelsetp3,levelsetp23,dipp3,sz,cifzp6,ciszp6,ciwzp6,&
+         (ph1%zen(1)-ph1%zst(1)+1),(ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
 
-    !! Compute div(grad(ls) / |grad(ls)|)
-    nlock = 0
-    call divergence(dv3,rho1,gradx_ls1,grady_ls1,gradz_ls1,ep1,drho1,divu3,nlock)
-    call interzpv(ppi3,dv3,dip3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+    ! Compute gradient of levelset (normals)
+    call gradp(nx1, ny1, nz1, levelsetp3)
+    call gradp(px1, py1, pz1, pp3(:,:,:,1)) ! Reset pressure gradients
+
+    if (nclx1.ne.0) then
+       nx1(1, :, :) = nx1(2, :, :)
+       nx1(xsize(1), :, :) = nx1(xsize(1) - 1, :, :)
+    endif
+
+    if (ncly1.ne.0) then
+       if (xstart(2).eq.1) then
+          ny1(:, 1, :) = ny1(:, 2, :)
+       endif
+       if (xend(2).eq.ny) then
+          ny1(:, xsize(2), :) = ny1(:, xsize(2) - 1, :)
+       endif
+    endif
+
+    if (nclz1.ne.0) then
+       if (xstart(3).eq.1) then
+          nz1(:, :, 1) = nz1(:, :,2)
+       endif
+       if (xend(3).eq.nz) then
+          nz1(:, :, xsize(3)) = nz1(:, :, xsize(3) - 1)
+       endif
+    endif
+
+    do k = 1, xsize(3)
+       z = real(k + xstart(3) - 2, mytype) * dz - half * zlz
+       do j = 1, xsize(2)
+          y = real(j + xstart(2) - 2, mytype) * dy - half * yly
+          do i = 1, xsize(1)
+             x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
+
+             !! Computed normal
+             normmag = sqrt(nx1(i, j, k)**2 + ny1(i, j, k)**2 + nz1(i, j, k)**2)
+             if (normmag.gt.(zero)) then
+                nx1(i, j, k) = nx1(i, j, k) / normmag
+                ny1(i, j, k) = ny1(i, j, k) / normmag
+                nz1(i, j, k) = nz1(i, j, k) / normmag
+             else
+                nx1(i, j, k) = zero
+                ny1(i, j, k) = zero
+                nz1(i, j, k) = zero
+             endif
+
+             ! !! Exact normal (of a sphere/cylinder)
+             ! normmag = sqrt(x**2 + y**2 + z**2)
+             ! if (normmag.gt.zero) then
+             !    nx1(i, j, k) = x / normmag
+             !    ny1(i, j, k) = y / normmag
+             !    nz1(i, j, k) = z / normmag
+             ! else
+             !    nx1(i, j, k) = zero
+             !    ny1(i, j, k) = zero
+             !    nz1(i, j, k) = zero
+             ! endif
+
+             ! !! Exact normal of a free surface
+             ! nx1(i, j, k) = zero
+             ! ny1(i, j, k) = -one
+             ! nz1(i, j, k) = zero
+          enddo
+       enddo
+    enddo
+
+    !! Compute curvature (consisent with div(grad(p)))
+    nlock = -1
+    call divergence(dv3,rho1,nx1,ny1,nz1,ep1,drho1,divu3,nlock)
+
+    ! Get levelset to p3 pencil
+    call interxvp(levelsetp1,levelset1,di1,sx,cifxp6,cisxp6,ciwxp6,&
+         xsize(1),nxmsize,xsize(2),xsize(3),1)
+    call transpose_x_to_y(levelsetp1,levelsetp12,ph4)
+    call interyvp(levelsetp2,levelsetp12,dipp2,sy,cifyp6,cisyp6,ciwyp6,&
+         (ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+    call transpose_y_to_z(levelsetp2,levelsetp23,ph3)
+    call interzvp(levelsetp3,levelsetp23,dipp3,sz,cifzp6,ciszp6,ciwzp6,&
+         (ph1%zen(1)-ph1%zst(1)+1),(ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
+
+    ! do k = 1, size(dv3, 3)
+    !    do j = 1, size(dv3, 2)
+    !       do i = 1, size(dv3, 1)
+    !          if (abs(levelsetp3(i, j, k)).lt.alpha) then
+    !             dv3(i, j, k) = (one / (two * alpha)) * (one + cos(pi * levelsetp3(i, j, k) / alpha)) &
+    !                  * dv3(i, j, k)
+    !          else
+    !             dv3(i, j, k) = zero
+    !          endif
+    !       enddo
+    !    enddo
+    ! enddo
+
+    !! Get curvature to pressure gradient points
+    call interzpv(levelsetpi23,dv3,dip3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
          (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
-    call transpose_z_to_y(ppi3,pp2,ph3)
-    call interypv(ppi2,pp2,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+    call transpose_z_to_y(levelsetpi23,levelsetpp2,ph3)
+    call interypv(levelsetpi12,levelsetpp2,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
          (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
-    call transpose_y_to_x(ppi2,pp1,ph2)
-    call interxpv(ppi1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+    call transpose_y_to_x(levelsetpi12,levelsetp1,ph2) !nxm ny nz
+    call interxpv(curvature1,levelsetp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
          nxmsize,xsize(1),xsize(2),xsize(3),1)
 
-    !! Recompute grad(ls) - memory will have been stomped on :(
-    call transpose_x_to_y(levelset1, levelset2)
-    call transpose_y_to_z(levelset2, levelset3)
-
-    call weno5 (gradz_ls3, levelset3, uz3, 3, nclz1, nclzn, zsize(1), zsize(2), zsize(3), 1)
-    call weno5 (grady_ls2, levelset2, uy2, 2, ncly1, nclyn, ysize(1), ysize(2), ysize(3), 1)
-    call weno5 (gradx_ls1, levelset1, ux1, 1, nclx1, nclxn, xsize(1), xsize(2), xsize(3), 1)
-
-    call transpose_z_to_y(gradz_ls3, gradz_ls2)
-    call transpose_y_to_x(grady_ls2, grady_ls1)
-    call transpose_y_to_x(gradz_ls2, gradz_ls1)
-
-    !! Compute forcing
-    do k = 1, xsize(3)
-       do j = 1, xsize(2)
-          do i = 1, xsize(1)
-             if (abs(levelset1(i, j, k)).lt.alpha) then
-                kdelta(i, j, k) = (one / (two * alpha)) * (one + cos(pi * levelset1(i, j, k) / alpha))
+    !! Multiply curvature by Dirac delta at pressure gradient points
+    call interzpv(normalpi23,levelsetp3,dip3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+         (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
+    do k = 1, size(levelsetpi23, 3)
+       do j = 1, size(levelsetpi23, 2)
+          do i = 1, size(levelsetpi23, 1)
+             if (abs(normalpi23(i, j, k)).lt.alpha) then
+                levelsetpi23(i, j, k) = (one / (two * alpha)) * (one + cos(pi * normalpi23(i, j, k) / alpha)) &
+                     * levelsetpi23(i, j, k)
              else
-                kdelta(i, j, k) = zero
+                levelsetpi23(i, j, k) = zero
              endif
           enddo
        enddo
     enddo
-    stfx1(:,:,:) = sigma * ppi1(:,:,:) * kdelta(:,:,:) * gradx_ls1(:,:,:)
-    stfy1(:,:,:) = sigma * ppi1(:,:,:) * kdelta(:,:,:) * grady_ls1(:,:,:)
-    stfz1(:,:,:) = sigma * ppi1(:,:,:) * kdelta(:,:,:) * gradz_ls1(:,:,:)
-    
+
+    call transpose_z_to_y(normalpi23,normalpp2,ph3)
+    call interypv(normalpi12,normalpp2,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+         (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+    do k = 1, size(levelsetpi12, 3)
+       do j = 1, size(levelsetpi12, 2)
+          do i = 1, size(levelsetpi12, 1)
+             if (abs(normalpi12(i, j, k)).lt.alpha) then
+                levelsetpi12(i, j, k) = (one / (two * alpha)) * (one + cos(pi * normalpi12(i, j, k) / alpha)) &
+                     * levelsetpi12(i, j, k)
+             else
+                levelsetpi12(i, j, k) = zero
+             endif
+          enddo
+       enddo
+    enddo
+
+    call transpose_y_to_x(normalpi12,normalp1,ph2) !nxm ny nz
+    call interxpv(stfz1,normalp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+         nxmsize,xsize(1),xsize(2),xsize(3),1)
+    do k = 1, xsize(3)
+       do j = 1, xsize(2)
+          do i = 1, xsize(1)
+             if (abs(stfz1(i, j, k)).lt.alpha) then
+                curvature1(i, j, k) = (one / (two * alpha)) * (one + cos(pi * stfz1(i, j, k) / alpha)) &
+                     * curvature1(i, j, k)
+             else
+                curvature1(i, j, k) = zero
+             endif
+          enddo
+       enddo
+    enddo
+
+    !! Compute curvature * normal at pressure gradient points
+
+    ! Z
+    call interxvp(levelsetp1,nz1,di1,sx,cifxp6,cisxp6,ciwxp6,&
+         xsize(1),nxmsize,xsize(2),xsize(3),1)
+    call transpose_x_to_y(levelsetp1,levelsetp12,ph4)
+    call interyvp(levelsetp2,levelsetp12,dipp2,sy,cifyp6,cisyp6,ciwyp6,&
+         (ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+    call transpose_y_to_z(levelsetp2,levelsetp23,ph3)
+    call interzvp(levelsetp3,levelsetp23,dipp3,sz,cifzp6,ciszp6,ciwzp6,&
+         (ph1%zen(1)-ph1%zst(1)+1),(ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
+    call interzpv(normalpi23,levelsetp3,dip3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+         (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
+    normalpi23 = levelsetpi23 * normalpi23
+    call transpose_z_to_y(normalpi23,normalpp2,ph3)
+    call interypv(normalpi12,normalpp2,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+         (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+    call transpose_y_to_x(normalpi12,normalp1,ph2) !nxm ny nz
+    call interxpv(stfz1,normalp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+         nxmsize,xsize(1),xsize(2),xsize(3),1)
+
+    ! Y
+    call interxvp(levelsetp1,ny1,di1,sx,cifxp6,cisxp6,ciwxp6,&
+         xsize(1),nxmsize,xsize(2),xsize(3),1)
+    call transpose_x_to_y(levelsetp1,levelsetp12,ph4)
+    call interyvp(levelsetp2,levelsetp12,dipp2,sy,cifyp6,cisyp6,ciwyp6,&
+         (ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
+    call transpose_y_to_z(levelsetp2,levelsetp23,ph3)
+    call interzvp(levelsetp3,levelsetp23,dipp3,sz,cifzp6,ciszp6,ciwzp6,&
+         (ph1%zen(1)-ph1%zst(1)+1),(ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
+    call interzpv(normalpi23,levelsetp3,dip3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+         (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
+    call transpose_z_to_y(normalpi23,normalpp2,ph3)
+    call interypv(normalpi12,normalpp2,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+         (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+    normalpi12 = levelsetpi12 * normalpi12
+    call transpose_y_to_x(normalpi12,normalp1,ph2) !nxm ny nz
+    call interxpv(stfy1,normalp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+         nxmsize,xsize(1),xsize(2),xsize(3),1)
+
+    ! X
+    stfx1 = curvature1 * nx1
+
+    ! !! Compute forcing
+    ! do k = 1, xsize(3)
+    !    z = real(k + xstart(3) - 2, mytype) * dz - half * zlz
+    !    do j = 1, xsize(2)
+    !       y = real(j + xstart(2) - 2, mytype) * dy - half * yly
+    !       do i = 1, xsize(1)
+    !          x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
+    !          if (abs(levelset1(i, j, k)).lt.alpha) then
+    !             ddelta1(i, j, k) = (one / (two * alpha)) * (one + cos(pi * levelset1(i, j, k) / alpha))
+    !          else
+    !             ddelta1(i, j, k) = zero
+    !          endif
+
+
+    !          ! if (abs(curvature1(i, j, k)).lt.(one / max(xlx, yly, zlz))) then
+    !          !    print *, "Whoah nelly: ", x, y, z
+    !          !    curvature1(i, j, k) = zero
+    !          ! endif
+    !       enddo
+    !    enddo
+    ! enddo
+    ! stfx1(:,:,:) = sigma * ddelta1(:,:,:) * stfx1(:,:,:)
+    ! stfy1(:,:,:) = sigma * ddelta1(:,:,:) * stfy1(:,:,:)
+    ! stfz1(:,:,:) = sigma * ddelta1(:,:,:) * stfz1(:,:,:)
+
+    stfx1(:,:,:) = sigma * stfx1(:,:,:)
+    stfy1(:,:,:) = sigma * stfy1(:,:,:)
+    stfz1(:,:,:) = sigma * stfz1(:,:,:)
+
     !! Add contribution to forcing terms
-    dux1(:,:,:,1) = dux1(:,:,:,1) + stfx1(:,:,:) / rho1(:,:,:,1)
-    duy1(:,:,:,1) = duy1(:,:,:,1) + stfy1(:,:,:) / rho1(:,:,:,1)
-    duz1(:,:,:,1) = duz1(:,:,:,1) + stfz1(:,:,:) / rho1(:,:,:,1)
-    
+    sx1(:,:,:) = sx1(:,:,:) + stfx1(:,:,:) * rho1(:,:,:,1) / rhomean
+    sy1(:,:,:) = sy1(:,:,:) + stfy1(:,:,:) * rho1(:,:,:,1) / rhomean
+    sz1(:,:,:) = sz1(:,:,:) + stfz1(:,:,:) * rho1(:,:,:,1) / rhomean
+
   end subroutine surface_tension_force
 
 endmodule freesurface
