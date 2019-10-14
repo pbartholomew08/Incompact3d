@@ -7,6 +7,7 @@ module navier
   public :: solve_poisson, calc_divu_constraint
   public :: pre_correc, cor_vel
   public :: momentum_to_velocity, velocity_to_momentum
+  public :: gradp
 
 contains
   
