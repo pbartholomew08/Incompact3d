@@ -21,7 +21,7 @@ contains
 
     USE decomp_2d, ONLY : mytype, xsize, zsize, ph1
     USE decomp_2d_poisson, ONLY : poisson
-    USE var, ONLY : itr, itime
+    USE var, ONLY : itr, itime, ifirst
     USE var, ONLY : nzmsize
     USE var, ONLY : dv3
     USE var, ONLY : two
@@ -29,6 +29,8 @@ contains
     USE param, ONLY : ilmn, ivarcoeff, ifreesurface
 
     USE div, ONLY : divergence
+
+    USE param, ONLY : gdt, itr
 
     IMPLICIT NONE
 
@@ -45,15 +47,16 @@ contains
 
     !! Locals
     INTEGER :: nlock, poissiter, piter
-    LOGICAL :: converged
+    LOGICAL :: converged, solvedphat
     REAL(mytype) :: atol, rtol
+    REAL(mytype) :: divup3norm
 
     nlock = 1 !! Corresponds to computing div(u*)
     converged = .FALSE.
     poissiter = 0
 
-    atol = 1.0e-12_mytype !! Absolute tolerance for Poisson solver
-    rtol = 1.0e-14_mytype !! Relative tolerance for Poisson solver
+    atol = 1.0e-14_mytype !! Absolute tolerance for Poisson solver
+    rtol = 1.0e-9_mytype !! Relative tolerance for Poisson solver
 
     IF (ilmn.AND.ivarcoeff) THEN
        !! Variable-coefficient Poisson solver works on div(u), not div(rho u)
@@ -63,7 +66,7 @@ contains
 
     CALL divergence(pp3(:,:,:,1),rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
     IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
-       dv3(:,:,:) = pp3(:,:,:,1)
+       dv3(:,:,:) = pp3(:,:,:,1) !! Store div(u*) in dv3
 
        IF ((itime.GT.1).AND.(itr.EQ.1)) THEN
           !! Extrapolate pressure
@@ -79,15 +82,12 @@ contains
        IF (ivarcoeff.OR.ifreesurface) THEN
 
           !! Test convergence
-          CALL test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
+          CALL test_varcoeff(converged, divup3norm, pp3, dv3, atol, poissiter)
 
           IF (.NOT.converged) THEN
-             !! Store current pressure field
-             pp3(:,:,:,2) = pp3(:,:,:,1)
-             
              !! Evaluate additional RHS terms
-             CALL calc_varcoeff_rhs(pp3(:,:,:,1), rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, &
-                  poissiter)
+             CALL calc_varcoeff_rhs(pp3, converged, rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, &
+                  poissiter, rtol, divup3norm)
           ENDIF
        ENDIF
 
@@ -194,8 +194,10 @@ contains
     USE decomp_2d
     USE variables
     USE MPI
-    USE var, only: pp1,pgy1,pgz1,di1,pp2,ppi2,pgy2,pgz2,pgzi2,dip2,&
-         pgz3,ppi3,dip3,nxmsize,nymsize,nzmsize
+    USE var, only: pp1,pgy1,pgz1,di1,&
+         pp2,ppi2,pgy2,pgz2,pgzi2,dip2,&
+         pgz3,ppi3,dip3,&
+         nxmsize,nymsize,nzmsize
 
     USE forces, only : ppi1
 
@@ -203,7 +205,7 @@ contains
 
     integer :: i,j,k
 
-    real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),nzmsize) :: pp3
+    real(mytype),dimension(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),nzmsize), intent(in) :: pp3
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: px1,py1,pz1
 
     !WORK Z-PENCILS
@@ -745,7 +747,7 @@ contains
   !! DESCRIPTION: Tests convergence of the variable-coefficient Poisson solver
   !!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  SUBROUTINE test_varcoeff(converged, pp3, dv3, atol, rtol, poissiter)
+  SUBROUTINE test_varcoeff(converged, divup3norm, pp3, dv3, atol, poissiter)
 
     USE MPI
     USE decomp_2d, ONLY: mytype, ph1, real_type, nrank
@@ -758,16 +760,16 @@ contains
     !! INPUTS
     REAL(mytype), INTENT(INOUT), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress) :: pp3
     REAL(mytype), INTENT(IN), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: dv3
-    REAL(mytype), INTENT(IN) :: atol, rtol
+    REAL(mytype), INTENT(IN) :: atol
     INTEGER, INTENT(IN) :: poissiter
 
     !! OUTPUTS
     LOGICAL, INTENT(OUT) :: converged
+    REAL(mytype) :: divup3norm
 
     !! LOCALS
     INTEGER :: ierr
     REAL(mytype) :: errloc, errglob
-    REAL(mytype), SAVE :: divup3norm
 
     IF (poissiter.EQ.0) THEN
        errloc = SUM(dv3**2)
@@ -794,14 +796,6 @@ contains
              PRINT *, "- Converged: atol"
           ENDIF
        ENDIF
-
-       !! Compare RMS change to size of |div(u*) - div(u)|
-       IF (errglob.LT.(rtol * divup3norm)) THEN
-          converged = .TRUE.
-          IF (nrank.EQ.0) THEN
-             PRINT *, "- Converged: rtol"
-          ENDIF
-       ENDIF
     ENDIF
 
   ENDSUBROUTINE test_varcoeff
@@ -813,7 +807,7 @@ contains
   !! DESCRIPTION: Computes RHS of the variable-coefficient Poisson solver
   !!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  SUBROUTINE calc_varcoeff_rhs(pp3, rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, poissiter)
+  SUBROUTINE calc_varcoeff_rhs(pp3, converged, rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, poissiter, rtol, divup3norm)
 
     USE MPI
 
@@ -821,7 +815,10 @@ contains
 
     USE param, ONLY : nrhotime, ntime
     USE param, ONLY : one
+    USE param, ONLY : npress
 
+    USE variables, ONLY : nxm, nym, nzm
+    
     USE var, ONLY : td1, te1, tf1
     USE var, ONLY : nzmsize
 
@@ -831,20 +828,24 @@ contains
 
     !! INPUTS
     INTEGER, INTENT(IN) :: poissiter
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: px1, py1, pz1
+    REAL(mytype), INTENT(INOUT), DIMENSION(xsize(1), xsize(2), xsize(3)) :: px1, py1, pz1
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: drho1
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ep1
     REAL(mytype), INTENT(IN), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
     REAL(mytype), INTENT(IN), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: dv3
+    REAL(mytype), INTENT(IN) :: rtol, divup3norm
 
     !! OUTPUTS
-    REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: pp3
+    REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress) :: pp3
+    LOGICAL :: converged
 
     !! LOCALS
     INTEGER :: nlock, ierr
     REAL(mytype) :: rhomin
     REAL(mytype), SAVE :: rho0
+
+    REAL(mytype) :: errloc, errglob
 
     IF (poissiter.EQ.0) THEN
        !! Compute rho0
@@ -853,16 +854,55 @@ contains
        CALL MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
     ENDIF
 
-    td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
-    te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
-    tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+    ! td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
+    ! te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
+    ! tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
 
+    ! nlock = -1 !! Don't do any funny business with LMN
+    ! CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
+
+    ! !! lapl(p) = div((1 - rho0/rho) grad(p)) + rho0(div(u*) - div(u))
+    ! !! dv3 contains div(u*) - div(u)
+    ! pp3(:,:,:,1) = pp3(:,:,:,1) + rho0 * dv3(:,:,:)
+
+    ! converged = .false.
+
+    !! First calculate the residual
+    call gradp(px1, py1, pz1, pp3(:,:,:,2))
+    td1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * px1(:,:,:)
+    te1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * py1(:,:,:)
+    tf1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * pz1(:,:,:)
+    pp3(:,:,:,2) = pp3(:,:,:,1)
+    call gradp(px1, py1, pz1, pp3(:,:,:,1))
+    td1(:,:,:) = td1(:,:,:) + (one / rho0) * px1(:,:,:)
+    te1(:,:,:) = te1(:,:,:) + (one / rho0) * py1(:,:,:)
+    tf1(:,:,:) = te1(:,:,:) + (one / rho0) * pz1(:,:,:)
     nlock = -1 !! Don't do any funny business with LMN
-    CALL divergence(pp3,rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
+    CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
+    
+    errloc = SUM((rho0 * (dv3(:,:,:) - pp3(:,:,:,1)))**2)
+    CALL MPI_ALLREDUCE(errloc,errglob,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
+    errglob = SQRT(errglob / nxm / nym / nzm)
 
-    !! lapl(p) = div((1 - rho0/rho) grad(p)) + rho0(div(u*) - div(u))
-    !! dv3 contains div(u*) - div(u)
-    pp3(:,:,:) = pp3(:,:,:) + rho0 * dv3(:,:,:)
+    !! Compare RMS change to size of |div(u*) - div(u)|
+    IF (errglob.LT.(rtol * rho0 * divup3norm)) THEN
+       converged = .TRUE.
+       IF (nrank.EQ.0) THEN
+          PRINT *, "- Converged: rtol", errglob, rtol * rho0 * divup3norm
+       ENDIF
+    ELSE IF (nrank.EQ.0) THEN
+       PRINT *, "+ RMS Err:", errglob / (divup3norm + epsilon(one))
+    ENDIF
+
+    IF (.NOT.converged) THEN
+       !! Now calculate and apply the correction
+       td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
+       te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
+       tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+       nlock = -1 !! Don't do any funny business with LMN
+       CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
+       pp3(:,:,:,1) = pp3(:,:,:,1) + rho0 * dv3(:,:,:)
+    ENDIF
 
   ENDSUBROUTINE calc_varcoeff_rhs
 
