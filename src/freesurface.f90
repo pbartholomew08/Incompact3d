@@ -4,6 +4,7 @@ module freesurface
   
   implicit none
   
+  real(mytype), save, allocatable, dimension(:,:,:) :: nx1, ny1, nz1
   real(mytype), save, allocatable, dimension(:,:,:) :: S1
 
   private
