@@ -408,37 +408,42 @@ contains
   endsubroutine update_fluid_properties
 
 
-  subroutine surface_tension_force(dux1, duy1, duz1, rho1, levelset1)
+  subroutine surface_tension_force(sx1, sy1, sz1, rho1, levelset1)
 
     use decomp_2d, only : mytype
     use decomp_2d, only : xsize, ysize, zsize
+    use decomp_2d, only : xstart, xend
     use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
+    use decomp_2d, only : alloc_x
 
-    use variables, only : cifip6, cisip6, ciwip6, cifx6, cisx6, ciwx6
-    use variables, only : cifip6y, cisip6y, ciwip6y, cify6, cisy6, ciwy6
-    use variables, only : cifip6z, cisip6z, ciwip6z, cifz6, cisz6, ciwz6
+    use variables, only : derx, dery, derz
     use variables, only : sx, sy, sz
 
-    use var, only : zero, one, two, three, pi
-    use var, only : stfx1 => ta1, stfy1 => tb1, stfz1 => tc1, &
-         gradx_ls1 => td1, grady_ls1 => te1, gradz_ls1 => tf1, mag_grad_ls1 => tg1, &
-         kdelta => th1
-    use var, only : levelset2 => ta2, grady_ls2 => tb2, gradz_ls2 => tc2
-    use var, only : levelset3 => ta3, gradz_ls3 => tb3
-    use var, only : ux1, uy2, uz3
-    use var, only : ep1, drho1, divu3
-    use var, only : dv3, ppi3, dip3
-    use var, only : pp2, ppi2, dip2
-    use var, only : pp1, ppi1 => ti1, di1
-    use var, only : ph2, ph3
-    use var, only : nxmsize, nymsize, nzmsize
+    use var, only : zero, half, one, two, three, pi
+    use var, only : stfx1 => ta1, stfy1 => tb1, stfz1 => tc1, ddelta1 => td1, curvature1 => te1
+    use var, only : di1
+    use var, only : ny, nz
 
-    use div, only : divergence
+    use var, only : ls2 => ta2, ny2 => tb2, nz2 => tc2
+    use var, only : ls3 => ta3, nz3 => tb3
 
-    use param, only : dx, dy, dz
-    use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
-    use param, only : ntime, nrhotime
+    use var, only : curvature2 => td2
+    use var, only : curvature3 => tc3
+
+    use variables, only : ffz, fsz, fwz, ffy, fsy, fwy, ffx, fsx, fwx
+
+    use var, only : di2
+    use var, only : di3
+    use variables, only : ffxp, fsxp, fwxp
+    use variables, only : ffyp, fsyp, fwyp, ppy
+    use variables, only : ffzp, fszp, fwzp
+
+    use param, only : nclx1, ncly1, nclz1
+    use param, only : dx, dy, dz, xlx, yly, zlz
+    use param, only : nrhotime
     use param, only : interface_thickness
+    use param, only : dens1, dens2
+    use param, only : itime, ifirst
 
     use weno, only : weno5
     
