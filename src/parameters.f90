@@ -463,6 +463,7 @@ subroutine parameter_defaults()
   ifreesurface = .FALSE.
   ilevelset = -1
   ls_reinit = .FALSE.
+  interface_thickness = 1.6_mytype
 
   !! IO
   ivisu = 1

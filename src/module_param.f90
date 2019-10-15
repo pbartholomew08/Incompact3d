@@ -289,6 +289,7 @@ module param
   logical :: ifreesurface
   integer :: ilevelset
   logical :: ls_reinit
+  real(mytype) :: interface_thickness
 
   !! Case-specific variables
   logical :: tgv_twod

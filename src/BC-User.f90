@@ -93,8 +93,8 @@ contains
                 !    phi1(i, j, k, :) = -one
                 ! endif
 
-                !! Free surface
-                phi1(i, j, k, :) = y
+                ! !! Free surface
+                ! phi1(i, j, k, :) = y
              enddo
           enddo
        enddo
