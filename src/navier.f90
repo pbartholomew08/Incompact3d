@@ -10,7 +10,7 @@ module navier
   public :: gradp
 
 contains
-  
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!  SUBROUTINE: solve_poisson
   !!      AUTHOR: Paul Bartholomew

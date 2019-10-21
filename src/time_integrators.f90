@@ -8,7 +8,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 module time_integrators
-  
+
   implicit none
 
   private
@@ -16,7 +16,7 @@ module time_integrators
 
 contains
 
-  subroutine intt(var1,dvar1)
+  subroutine intt(var1,dvar1,forcing1)
 
     USE param
     USE variables
@@ -28,6 +28,8 @@ contains
 
     !! OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dvar1
+
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)), optional :: forcing1
 
 #ifdef DEBG
     if (nrank .eq. 0) print *,'# intt start'
@@ -126,6 +128,10 @@ contains
           print *, "RK4 not implemented!"
           STOP
        endif
+       !>>> Semi-implicit
+    elseif(itimescheme.eq.7) then
+
+       call inttimp(var1,dvar1,forcing1)
 
     else
 
@@ -148,11 +154,11 @@ contains
 
     USE decomp_2d, ONLY : mytype, xsize
     USE param, ONLY : zero, one
-    USE param, ONLY : ntime, nrhotime, ilmn, iscalar, ilmn_solve_temp
+    USE param, ONLY : ntime, nrhotime, ilmn, iscalar, ilmn_solve_temp,itimescheme
     USE param, ONLY : primary_species, massfrac
     USE param, ONLY : ilevelset, ls_reinit
     use param, only : scalar_lbound, scalar_ubound
-    USE variables, ONLY : numscalar
+    USE variables, ONLY : numscalar,nu0nu
     USE var, ONLY : ta1, tb1
     USE freesurface, ONLY : reinit_ls
 
@@ -188,18 +194,23 @@ contains
 
        DO is = 1, numscalar
           IF ((is.NE.primary_species).and.(is.ne.ilevelset)) THEN
-             CALL intt(phi1(:,:,:,is), dphi1(:,:,:,:,is))
+             IF (itimescheme.NE.7) THEN
+                CALL intt(phi1(:,:,:,is), dphi1(:,:,:,:,is))
+             ELSE
+                CALL scalar_schemes(nu0nu,is)
+                CALL scalarimp(ux1,uy1,uz1,phi1(:,:,:,is),dphi1(:,:,:,:,is),is)
+             ENDIF
+          ENDIF
 
-             DO k = 1, xsize(3)
-                DO j = 1, xsize(2)
-                   DO i = 1, xsize(1)
-                      phi1(i,j,k,is) = max(phi1(i,j,k,is),scalar_lbound(is))
-                      phi1(i,j,k,is) = min(phi1(i,j,k,is),scalar_ubound(is))
-                   ENDDO
+          DO k = 1, xsize(3)
+             DO j = 1, xsize(2)
+                DO i = 1, xsize(1)
+                   phi1(i,j,k,is) = max(phi1(i,j,k,is),scalar_lbound(is))
+                   phi1(i,j,k,is) = min(phi1(i,j,k,is),scalar_ubound(is))
                 ENDDO
              ENDDO
+          ENDDO
 
-          ENDIF
        ENDDO
 
        IF (primary_species.GE.1) THEN
@@ -243,6 +254,7 @@ contains
 
     USE param
     USE variables
+    USE var, ONLY: px1, py1, pz1
     USE decomp_2d
 
     implicit none
@@ -253,9 +265,15 @@ contains
     !! OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1, duy1, duz1
 
-    call intt(ux1, dux1)
-    call intt(uy1, duy1)
-    call intt(uz1, duz1)
+    if (itimescheme.eq.7) then
+       call intt(ux1, dux1, px1)
+       call intt(uy1, duy1, py1)
+       call intt(uz1, duz1, pz1)
+    else
+       call intt(ux1, dux1)
+       call intt(uy1, duy1)
+       call intt(uz1, duz1)
+    endif
 
   endsubroutine int_time_momentum
 

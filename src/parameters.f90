@@ -21,12 +21,12 @@
 !    We kindly request that you cite Xcompact3d/Incompact3d in your
 !    publications and presentations. The following citations are suggested:
 !
-!    1-Laizet S. & Lamballais E., 2009, High-order compact schemes for 
-!    incompressible flows: a simple and efficient method with the quasi-spectral 
+!    1-Laizet S. & Lamballais E., 2009, High-order compact schemes for
+!    incompressible flows: a simple and efficient method with the quasi-spectral
 !    accuracy, J. Comp. Phys.,  vol 228 (15), pp 5989-6015
 !
-!    2-Laizet S. & Li N., 2011, Incompact3d: a powerful tool to tackle turbulence 
-!    problems with up to 0(10^5) computational cores, Int. J. of Numerical 
+!    2-Laizet S. & Li N., 2011, Incompact3d: a powerful tool to tackle turbulence
+!    problems with up to 0(10^5) computational cores, Int. J. of Numerical
 !    Methods in Fluids, vol 67 (11), pp 1735-1757
 !################################################################################
 
@@ -135,7 +135,7 @@ subroutine parameter(input_i3d)
      nclxS1 = nclx1; nclxSn = nclxn
      nclyS1 = ncly1; nclySn = nclyn
      nclzS1 = nclz1; nclzSn = nclzn
-     
+
      !! Allocate scalar arrays and set sensible defaults
      allocate(massfrac(numscalar))
      allocate(mol_weight(numscalar))
@@ -151,7 +151,7 @@ subroutine parameter(input_i3d)
      scalar_lbound(:) = -huge(one)
      scalar_ubound(:) = huge(one)
   endif
-  
+
   if (ilmn) then
      read(10, nml=LMN)
 
@@ -182,7 +182,10 @@ subroutine parameter(input_i3d)
   
   ! !! These are the 'optional'/model parameters
   ! read(10, nml=ScalarParam)
-  if(ilesmod==0) nu0nu=four; cnu=0.44_mytype 
+  if(ilesmod==0) then
+     nu0nu=four
+     cnu=0.44_mytype
+  endif
   if(ilesmod.ne.0) read(10, nml=LESModel)
   ! read(10, nml=TurbulenceWallModel)
   read(10, nml=CASE) !! Read case-specific variables
@@ -241,6 +244,8 @@ subroutine parameter(input_i3d)
         print *,'Mixing layer'
      elseif (itype.eq.itype_jet) then
         print *,'Jet'
+     elseif (itype.eq.itype_tbl) then
+        print *,'Turbulent boundary layer'
      else
         print *,'Unknown itype: ', itype
         stop
@@ -313,8 +318,10 @@ subroutine parameter(input_i3d)
         print *,'Temporal scheme    : Runge-kutta 4'
         print *,'Error: Runge-kutta 4 not implemented!'
         stop
+     elseif (itimescheme.eq.7) then
+        print *,'Temporal scheme    : Semi-implicit'
      else
-        print *,'Error: itimescheme must be specified as 1-6'
+        print *,'Error: itimescheme must be specified as 1-7'
         stop
      endif
      if (iscalar.eq.0) then
