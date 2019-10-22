@@ -684,11 +684,7 @@ contains
           y = real(j + xstart(2) - 2, mytype) * dy - half * yly
           do i = 1, xsize(1)
              x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
-             if (abs(levelset1(i, j, k)).lt.alpha) then
-                ddelta1(i, j, k) = (one / (two * alpha)) * (one + cos(pi * levelset1(i, j, k) / alpha))
-             else
-                ddelta1(i, j, k) = zero
-             endif
+             ddelta1(i, j, k) = exp(-((levelset1(i, j, k) / alpha)**2)) / (alpha * sqrt(pi))
           enddo
        enddo
     enddo
