@@ -429,9 +429,12 @@ contains
     !! Local
     integer :: i, j, k
     real(mytype) :: deltax, alpha
+    real(mytype) :: hk, k99
 
     deltax = min(dx, dy, dz)
     alpha = interface_thickness * deltax
+
+    k99 = -(one / (two * alpha)) * log(one / 0.99_mytype - one)
 
     !!---------------------------------
     if (ilevelset.gt.0) then
@@ -455,10 +458,16 @@ contains
                    ! mu1(i, j, k) = ((visc1 + visc2) &
                    !      + (visc1 - visc2) * sin(pi * levelset1(i, j, k, ilevelset) / (two * eps))) &
                    !      / (two * visc1)
-                   rho1(i, j, k, 1) = dens2 + (dens1 - dens2) * half * (one + levelset1(i, j, k) / alpha &
-                        + (sin(pi * levelset1(i, j, k) / alpha)) / pi)
-                   mu1(i, j, k) = visc2 + (visc1 - visc2) * half * (one + levelset1(i, j, k) / alpha &
-                        + (sin(pi * levelset1(i, j, k) / alpha)) / pi)
+                   
+                   ! rho1(i, j, k, 1) = dens2 + (dens1 - dens2) * half * (one + levelset1(i, j, k) / alpha &
+                   !      + (sin(pi * levelset1(i, j, k) / alpha)) / pi)
+                   ! mu1(i, j, k) = visc2 + (visc1 - visc2) * half * (one + levelset1(i, j, k) / alpha &
+                   !      + (sin(pi * levelset1(i, j, k) / alpha)) / pi)
+
+                   !! Calculate Heaviside function using logistic function
+                   hk = one / (one + exp(-two * k99 * levelset1(i, j, k)))
+                   rho1(i, j, k, 1) = dens2 + hk * (dens1 - dens2)
+                   mu1(i, j, k) = visc2 + hk * (visc1 - visc2)
                 endif
              enddo
           enddo
@@ -641,22 +650,34 @@ contains
                 nz1(i, j, k) = zero
              endif
 
-             ! !! Exact normal (of a sphere/cylinder)
-             ! normmag = sqrt(x**2 + y**2 + z**2)
+             ! ! !! Exact normal (of a sphere)
+             ! ! normmag = sqrt(x**2 + y**2 + z**2)
+             ! ! if (normmag.gt.zero) then
+             ! !    nx1(i, j, k) = x / normmag
+             ! !    ny1(i, j, k) = y / normmag
+             ! !    nz1(i, j, k) = z / normmag
+             ! ! else
+             ! !    nx1(i, j, k) = zero
+             ! !    ny1(i, j, k) = zero
+             ! !    nz1(i, j, k) = zero
+             ! ! endif
+
+             ! !! Exact normal (of a cylinder)
+             ! normmag = sqrt(x**2 + y**2)
              ! if (normmag.gt.zero) then
              !    nx1(i, j, k) = x / normmag
              !    ny1(i, j, k) = y / normmag
-             !    nz1(i, j, k) = z / normmag
+             !    nz1(i, j, k) = zero
              ! else
              !    nx1(i, j, k) = zero
              !    ny1(i, j, k) = zero
              !    nz1(i, j, k) = zero
              ! endif
 
-             ! !! Exact normal of a free surface
-             ! nx1(i, j, k) = zero
-             ! ny1(i, j, k) = -one
-             ! nz1(i, j, k) = zero
+             ! ! !! Exact normal of a free surface
+             ! ! nx1(i, j, k) = zero
+             ! ! ny1(i, j, k) = -one
+             ! ! nz1(i, j, k) = zero
           enddo
        enddo
     enddo
@@ -672,6 +693,22 @@ contains
     call transpose_y_to_x(curvature2, curvature1)
     call derx (stfx1,nx1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
     curvature1 = curvature1 + stfx1
+
+    ! !! Exact curvature of a cylinder
+    ! do k = 1, xsize(3)
+    !    z = real(k + xstart(3) - 2, mytype) * dz - half * zlz
+    !    do j = 1, xsize(2)
+    !       y = real(j + xstart(2) - 2, mytype) * dy - half * yly
+    !       do i = 1, xsize(1)
+    !          x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
+    !          if ((x**2 + y**2).gt.zero) then
+    !             curvature1(i,j,k) = one / sqrt(x**2 + y**2)
+    !          else
+    !             curvature1(i,j,k) = zero
+    !          endif
+    !       enddo
+    !    enddo
+    ! enddo
     
     !! Compute forcing
     stfx1(:,:,:) = curvature1(:,:,:) * nx1(:,:,:)
@@ -684,6 +721,15 @@ contains
           y = real(j + xstart(2) - 2, mytype) * dy - half * yly
           do i = 1, xsize(1)
              x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
+
+             ! !! COS Dirac delta
+             ! if (abs(levelset1(i, j, k)).lt.alpha) then
+             !    ddelta1(i, j, k) = half * (one + cos(pi * levelset1(i, j, k) / alpha)) / alpha
+             ! else
+             !    ddelta1(i, j, k) = zero
+             ! endif
+
+             !! GAUSS Dirac delta
              ddelta1(i, j, k) = exp(-((levelset1(i, j, k) / alpha)**2)) / (alpha * sqrt(pi))
           enddo
        enddo
