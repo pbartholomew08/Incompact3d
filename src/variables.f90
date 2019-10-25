@@ -40,13 +40,14 @@ module var
   ! define all major arrays here
   real(mytype), save, allocatable, dimension(:,:,:) :: ux1, ux2, ux3, po3, dv3
   real(mytype), save, allocatable, dimension(:,:,:,:) :: pp3
+  real(mytype), save, allocatable, dimension(:,:,:) :: qq3
   real(mytype), save, allocatable, dimension(:,:,:) :: uy1, uy2, uy3
   real(mytype), save, allocatable, dimension(:,:,:) :: uz1, uz2, uz3
   real(mytype), save, allocatable, dimension(:,:,:,:) :: rho1, drho1
   real(mytype), save, allocatable, dimension(:,:,:) :: rho2, rho3
   real(mytype), save, allocatable, dimension(:,:,:) :: divu3
   real(mytype), save, allocatable, dimension(:,:,:,:) :: phi1, phi2, phi3
-  real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
+  real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1, qx1, qy1, qz1
   real(mytype), save, allocatable, dimension(:,:,:) :: ep1, diss1, pre1, depo, depof, kine
   real(mytype), save, allocatable, dimension(:,:,:,:) :: dux1,duy1,duz1  ! Output of convdiff
   real(mytype), save, allocatable, dimension(:,:,:,:,:) :: dphi1
@@ -133,9 +134,12 @@ contains
     call alloc_x(ux1, opt_global=.true.) !global indices
     call alloc_x(uy1, opt_global=.true.) !global indices
     call alloc_x(uz1, opt_global=.true.) !global indices
-    call alloc_x(pz1, opt_global=.true.) !global indices
     call alloc_x(px1, opt_global=.true.) !global indices
     call alloc_x(py1, opt_global=.true.) !global indices
+    call alloc_x(pz1, opt_global=.true.) !global indices
+    call alloc_x(qx1, opt_global=.true.) !global indices
+    call alloc_x(qy1, opt_global=.true.) !global indices
+    call alloc_x(qz1, opt_global=.true.) !global indices
     call alloc_x(diss1, opt_global=.true.) !global indices
     call alloc_x(pre1, opt_global=.true.) !global indices
 
@@ -257,6 +261,7 @@ contains
     !   allocate (dv3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
     !   allocate (po3(ph%zst(1):ph%zen(1),ph%zst(2):ph%zen(2),ph%zst(3):ph%zen(3)))
     allocate(pp3(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress))
+    allocate(qq3(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize))
     call alloc_z(dv3,ph,.true.)
     call alloc_z(po3,ph,.true.)
 

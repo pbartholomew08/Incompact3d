@@ -60,6 +60,7 @@ CONTAINS
 
     USE freesurface, ONLY : reinit_ls, update_fluid_properties
     USE var, ONLY : mu1
+    USE var, ONLY : qq3
 
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
     REAL(mytype),DIMENSION(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
@@ -76,6 +77,7 @@ CONTAINS
     px1(:,:,:) = zero
     py1(:,:,:) = zero
     pz1(:,:,:) = zero
+    qq3(:,:,:) = zero
 
     !! Default density and pressure0 to one
     pressure0 = one

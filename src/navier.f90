@@ -25,6 +25,7 @@ contains
     USE var, ONLY : nzmsize
     USE var, ONLY : dv3
     USE var, ONLY : two
+    USE var, ONLY : qq3, qx1, qy1, qz1
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff, ifreesurface
 
@@ -80,6 +81,7 @@ contains
 
     DO WHILE(.NOT.converged)
        IF (ivarcoeff.OR.ifreesurface) THEN
+          qx1 = px1; qy1 = py1; qz1 = pz1
 
           !! Test convergence
           CALL test_varcoeff(converged, divup3norm, pp3, dv3, atol, poissiter)
@@ -133,6 +135,7 @@ contains
     USE param
 
     USE var, only : nzmsize
+    USE var, only : qx1, qy1, qz1
 
     implicit none
 
@@ -149,26 +152,36 @@ contains
        uy(:,:,:)=uy(:,:,:)-py(:,:,:)
        uz(:,:,:)=uz(:,:,:)-pz(:,:,:)
     else
-       !! Compute rho0
-       rhomin = minval(rho)
+       if (ipdelta) then
+          !! Get previous iter pressure gradient
+          CALL gradp(px,py,pz,pp3(:,:,:,3))
+          ux(:,:,:) = ux(:,:,:) + px(:,:,:) / rho(:,:,:,1)
+          uy(:,:,:) = uy(:,:,:) + py(:,:,:) / rho(:,:,:,1)
+          uz(:,:,:) = uz(:,:,:) + pz(:,:,:) / rho(:,:,:,1)
+          !! Reset pressure gradient
+          CALL gradp(px,py,pz,pp3(:,:,:,2))
+       endif
+       
+       if (itime.gt.ifirst) then
+          !! Compute rho0
+          rhomin = minval(rho)
+          call MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
 
-       call MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
+          !! First correct according to new pressure gradient
+          ux(:,:,:) = ux(:,:,:) - px(:,:,:) / rho0
+          uy(:,:,:) = uy(:,:,:) - py(:,:,:) / rho0
+          uz(:,:,:) = uz(:,:,:) - pz(:,:,:) / rho0
 
-       !! First correct according to new pressure gradient
-       ux(:,:,:) = ux(:,:,:) - px(:,:,:) / rho0
-       uy(:,:,:) = uy(:,:,:) - py(:,:,:) / rho0
-       uz(:,:,:) = uz(:,:,:) - pz(:,:,:) / rho0
+          !! Now correct with the previous pressure gradient
+          ux(:,:,:)=ux(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qx1(:,:,:)
+          uy(:,:,:)=uy(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qy1(:,:,:)
+          uz(:,:,:)=uz(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qz1(:,:,:)
+       else
+          ux(:,:,:)=ux(:,:,:)-px(:,:,:) / rho(:,:,:,1)
+          uy(:,:,:)=uy(:,:,:)-py(:,:,:) / rho(:,:,:,1)
+          uz(:,:,:)=uz(:,:,:)-pz(:,:,:) / rho(:,:,:,1)
+       endif
 
-       !! Get previous iter pressure gradient
-       CALL gradp(px,py,pz,pp3(:,:,:,2))
-
-       !! Not correct with the previous pressure gradient
-       ux(:,:,:)=ux(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * px(:,:,:)
-       uy(:,:,:)=uy(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * py(:,:,:)
-       uz(:,:,:)=uz(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * pz(:,:,:)
-
-       !! Reset pressure gradient
-       CALL gradp(px,py,pz,pp3(:,:,:,1))
     endif
 
     return
@@ -312,6 +325,7 @@ contains
     USE variables
     USE param
     USE var
+    USE var, only : invrho => ta1
     USE MPI
 
     implicit none
@@ -356,11 +370,21 @@ contains
 
     endif
 
+    if (ifreesurface) then
+       if (itime.eq.ifirst) then
+          invrho(:,:,:) = one / rho1(:,:,:,1)
+       else
+          invrho(:,:,:) = one / min(dens1, dens2)
+       endif
+    else
+       invrho(:,:,:) = one
+    endif
+
     if (nclx1==2) then
        do k=1,xsize(3)
           do j=1,xsize(2)
-             dpdyx1(j,k)=dpdyx1(j,k)*gdt(itr)
-             dpdzx1(j,k)=dpdzx1(j,k)*gdt(itr)
+             dpdyx1(j,k)=invrho(1,j,k)*dpdyx1(j,k)*gdt(itr)
+             dpdzx1(j,k)=invrho(1,j,k)*dpdzx1(j,k)*gdt(itr)
           enddo
        enddo
        do k=1,xsize(3)
@@ -374,8 +398,8 @@ contains
     if (nclxn==2) then
        do k=1,xsize(3)
           do j=1,xsize(2)
-             dpdyxn(j,k)=dpdyxn(j,k)*gdt(itr)
-             dpdzxn(j,k)=dpdzxn(j,k)*gdt(itr)
+             dpdyxn(j,k)=invrho(nx,j,k)*dpdyxn(j,k)*gdt(itr)
+             dpdzxn(j,k)=invrho(nx,j,k)*dpdzxn(j,k)*gdt(itr)
           enddo
        enddo
        do k=1,xsize(3)
@@ -409,8 +433,8 @@ contains
        if (xstart(2)==1) then
           do k=1,xsize(3)
              do i=1,xsize(1)
-                dpdxy1(i,k)=dpdxy1(i,k)*gdt(itr)
-                dpdzy1(i,k)=dpdzy1(i,k)*gdt(itr)
+                dpdxy1(i,k)=invrho(i,1,k)*dpdxy1(i,k)*gdt(itr)
+                dpdzy1(i,k)=invrho(i,1,k)*dpdzy1(i,k)*gdt(itr)
              enddo
           enddo
           do k=1,xsize(3)
@@ -427,8 +451,8 @@ contains
        if (xend(2)==ny) then
           do k=1,xsize(3)
              do i=1,xsize(1)
-                dpdxyn(i,k)=dpdxyn(i,k)*gdt(itr)
-                dpdzyn(i,k)=dpdzyn(i,k)*gdt(itr)
+                dpdxyn(i,k)=invrho(i,xsize(2),k)*dpdxyn(i,k)*gdt(itr)
+                dpdzyn(i,k)=invrho(i,xsize(2),k)*dpdzyn(i,k)*gdt(itr)
              enddo
           enddo
        endif
@@ -478,8 +502,8 @@ contains
        if (xstart(3)==1) then
           do j=1,xsize(2)
              do i=1,xsize(1)
-                dpdxz1(i,j)=dpdxz1(i,j)*gdt(itr)
-                dpdyz1(i,j)=dpdyz1(i,j)*gdt(itr)
+                dpdxz1(i,j)=invrho(i,j,1)*dpdxz1(i,j)*gdt(itr)
+                dpdyz1(i,j)=invrho(i,j,1)*dpdyz1(i,j)*gdt(itr)
              enddo
           enddo
           do j=1,xsize(2)
@@ -496,8 +520,8 @@ contains
        if (xend(3)==nz) then
           do j=1,xsize(2)
              do i=1,xsize(1)
-                dpdxzn(i,j)=dpdxzn(i,j)*gdt(itr)
-                dpdyzn(i,j)=dpdyzn(i,j)*gdt(itr)
+                dpdxzn(i,j)=invrho(i,j,xsize(3))*dpdxzn(i,j)*gdt(itr)
+                dpdyzn(i,j)=invrho(i,j,xsize(3))*dpdyzn(i,j)*gdt(itr)
              enddo
           enddo
           do j=1,xsize(2)
