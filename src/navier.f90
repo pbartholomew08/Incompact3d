@@ -878,55 +878,62 @@ contains
        CALL MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
     ENDIF
 
-    ! td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
-    ! te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
-    ! tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+    pp3(:,:,:,2) = pp3(:,:,:,1)
 
+    td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
+    te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
+    tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+
+    nlock = -1 !! Don't do any funny business with LMN
+    CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
+
+    !! lapl(p) = div((1 - rho0/rho) grad(p)) + rho0(div(u*) - div(u))
+    !! dv3 contains div(u*) - div(u)
+    pp3(:,:,:,1) = pp3(:,:,:,1) + rho0 * dv3(:,:,:)
+
+    converged = .false.
+
+    ! !! First calculate the residual
+    ! call gradp(px1, py1, pz1, pp3(:,:,:,2))
+    ! td1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * px1(:,:,:)
+    ! te1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * py1(:,:,:)
+    ! tf1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * pz1(:,:,:)
+    ! call gradp(px1, py1, pz1, pp3(:,:,:,1))
+    ! td1(:,:,:) = td1(:,:,:) + (one / rho0) * px1(:,:,:)
+    ! te1(:,:,:) = te1(:,:,:) + (one / rho0) * py1(:,:,:)
+    ! tf1(:,:,:) = te1(:,:,:) + (one / rho0) * pz1(:,:,:)
+
+    ! ! Store old pressure
+    ! pp3(:,:,:,2) = pp3(:,:,:,1)
+
+    ! ! Compute divergene of pressure gradient difference
     ! nlock = -1 !! Don't do any funny business with LMN
     ! CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
 
-    ! !! lapl(p) = div((1 - rho0/rho) grad(p)) + rho0(div(u*) - div(u))
-    ! !! dv3 contains div(u*) - div(u)
-    ! pp3(:,:,:,1) = pp3(:,:,:,1) + rho0 * dv3(:,:,:)
+    ! ! Compute norm of the residual
+    ! errloc = SUM((rho0 * (dv3(:,:,:) - pp3(:,:,:,1)))**2)
+    ! CALL MPI_ALLREDUCE(errloc,errglob,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
+    ! errglob = SQRT(errglob / nxm / nym / nzm)
 
-    ! converged = .false.
+    ! !! Compare RMS change to size of |div(u*) - div(u)|
+    ! IF (errglob.LT.(rtol * rho0 * divup3norm)) THEN
+    !    converged = .TRUE.
+    !    IF (nrank.EQ.0) THEN
+    !       PRINT *, "- Converged: rtol", errglob, rtol * rho0 * divup3norm
+    !    ENDIF
+    ! ELSE IF (nrank.EQ.0) THEN
+    !    PRINT *, "+ RMS Err:", errglob / (divup3norm + epsilon(one))
+    ! ENDIF
 
-    !! First calculate the residual
-    call gradp(px1, py1, pz1, pp3(:,:,:,2))
-    td1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * px1(:,:,:)
-    te1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * py1(:,:,:)
-    tf1(:,:,:) = (one / rho1(:,:,:,1) - one / rho0) * pz1(:,:,:)
-    pp3(:,:,:,2) = pp3(:,:,:,1)
-    call gradp(px1, py1, pz1, pp3(:,:,:,1))
-    td1(:,:,:) = td1(:,:,:) + (one / rho0) * px1(:,:,:)
-    te1(:,:,:) = te1(:,:,:) + (one / rho0) * py1(:,:,:)
-    tf1(:,:,:) = te1(:,:,:) + (one / rho0) * pz1(:,:,:)
-    nlock = -1 !! Don't do any funny business with LMN
-    CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
-    
-    errloc = SUM((rho0 * (dv3(:,:,:) - pp3(:,:,:,1)))**2)
-    CALL MPI_ALLREDUCE(errloc,errglob,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
-    errglob = SQRT(errglob / nxm / nym / nzm)
-
-    !! Compare RMS change to size of |div(u*) - div(u)|
-    IF (errglob.LT.(rtol * rho0 * divup3norm)) THEN
-       converged = .TRUE.
-       IF (nrank.EQ.0) THEN
-          PRINT *, "- Converged: rtol", errglob, rtol * rho0 * divup3norm
-       ENDIF
-    ELSE IF (nrank.EQ.0) THEN
-       PRINT *, "+ RMS Err:", errglob / (divup3norm + epsilon(one))
-    ENDIF
-
-    IF (.NOT.converged) THEN
-       !! Now calculate and apply the correction
-       td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
-       te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
-       tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
-       nlock = -1 !! Don't do any funny business with LMN
-       CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
-       pp3(:,:,:,1) = pp3(:,:,:,1) + rho0 * dv3(:,:,:)
-    ENDIF
+    ! IF (.NOT.converged) THEN
+    !    !! Now calculate and apply the correction
+    !    td1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
+    !    te1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
+    !    tf1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+    !    nlock = -1 !! Don't do any funny business with LMN
+    !    CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
+    !    pp3(:,:,:,1) = pp3(:,:,:,1) + rho0 * dv3(:,:,:)
+    ! ENDIF
 
   ENDSUBROUTINE calc_varcoeff_rhs
 
