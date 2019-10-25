@@ -319,7 +319,7 @@ contains
     return
   end subroutine gradp
   !*******************************************************************
-  subroutine pre_correc(ux,uy,uz,ep)
+  subroutine pre_correc(ux,uy,uz,ep,enforce_bc)
 
     USE decomp_2d
     USE variables
@@ -331,12 +331,19 @@ contains
     implicit none
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,ep
+    logical, intent(in) :: enforce_bc
     integer :: i,j,k,is
-    real(mytype) :: ut,ut1,utt,ut11
+    real(mytype) :: ut,ut1,utt,ut11,bc_set
 
     integer :: code
     integer, dimension(2) :: dims, dummy_coords
     logical, dimension(2) :: dummy_periods
+
+    if (enforce_bc) then
+       bc_set = one
+    else
+       bc_set = zero
+    endif
 
     call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, code)
 
@@ -390,8 +397,8 @@ contains
        do k=1,xsize(3)
           do j=1,xsize(2)
              ux(1 ,j,k)=bxx1(j,k)
-             uy(1 ,j,k)=bxy1(j,k)+dpdyx1(j,k)
-             uz(1 ,j,k)=bxz1(j,k)+dpdzx1(j,k)
+             uy(1 ,j,k)=bc_set*bxy1(j,k)+(one-bc_set)*uy(1,j,k)+dpdyx1(j,k)
+             uz(1 ,j,k)=bc_set*bxz1(j,k)+(one-bc_set)*uz(1,j,k)+dpdzx1(j,k)
           enddo
        enddo
     endif
@@ -405,8 +412,8 @@ contains
        do k=1,xsize(3)
           do j=1,xsize(2)
              ux(nx,j,k)=bxxn(j,k)
-             uy(nx,j,k)=bxyn(j,k)+dpdyxn(j,k)
-             uz(nx,j,k)=bxzn(j,k)+dpdzxn(j,k)
+             uy(nx,j,k)=bc_set*bxyn(j,k)+(one-bc_set)*uy(nx,j,k)+dpdyxn(j,k)
+             uz(nx,j,k)=bc_set*bxzn(j,k)+(one-bc_set)*uz(nx,j,k)+dpdzxn(j,k)
           enddo
        enddo
     endif
@@ -439,9 +446,9 @@ contains
           enddo
           do k=1,xsize(3)
              do i=1,xsize(1)
-                ux(i,1,k)=byx1(i,k)+dpdxy1(i,k)
+                ux(i,1,k)=bc_set*byx1(i,k)+(one-bc_set)*ux(i,1,k)+dpdxy1(i,k)
                 uy(i,1,k)=byy1(i,k)
-                uz(i,1,k)=byz1(i,k)+dpdzy1(i,k)
+                uz(i,1,k)=bc_set*byz1(i,k)+(one-bc_set)*uz(i,1,k)+dpdzy1(i,k)
              enddo
           enddo
        endif
@@ -459,17 +466,17 @@ contains
        if (dims(1)==1) then
           do k=1,xsize(3)
              do i=1,xsize(1)
-                ux(i,xsize(2),k)=byxn(i,k)+dpdxyn(i,k)
+                ux(i,xsize(2),k)=bc_set*byxn(i,k)+(one-bc_set)*ux(i,xsize(2),k)+dpdxyn(i,k)
                 uy(i,xsize(2),k)=byyn(i,k)
-                uz(i,xsize(2),k)=byzn(i,k)+dpdzyn(i,k)
+                uz(i,xsize(2),k)=bc_set*byzn(i,k)+(one-bc_set)*uz(i,xsize(2),k)+dpdzyn(i,k)
              enddo
           enddo
        elseif (ny - (nym / dims(1)) == xstart(2)) then
           do k=1,xsize(3)
              do i=1,xsize(1)
-                ux(i,xsize(2),k)=byxn(i,k)+dpdxyn(i,k)
+                ux(i,xsize(2),k)=bc_set*byxn(i,k)+(one-bc_set)*ux(i,xsize(2),k)+dpdxyn(i,k)
                 uy(i,xsize(2),k)=byyn(i,k)
-                uz(i,xsize(2),k)=byzn(i,k)+dpdzyn(i,k)
+                uz(i,xsize(2),k)=bc_set*byzn(i,k)+(one-bc_set)*uz(i,xsize(2),k)+dpdzyn(i,k)
              enddo
           enddo
        endif
@@ -508,8 +515,8 @@ contains
           enddo
           do j=1,xsize(2)
              do i=1,xsize(1)
-                ux(i,j,1)=bzx1(i,j)+dpdxz1(i,j)
-                uy(i,j,1)=bzy1(i,j)+dpdyz1(i,j)
+                ux(i,j,1)=bc_set*bzx1(i,j)+(one-bc_set)*ux(i,j,1)+dpdxz1(i,j)
+                uy(i,j,1)=bc_set*bzy1(i,j)+(one-bc_set)*uy(i,j,1)+dpdyz1(i,j)
                 uz(i,j,1)=bzz1(i,j)
              enddo
           enddo
@@ -526,8 +533,8 @@ contains
           enddo
           do j=1,xsize(2)
              do i=1,xsize(1)
-                ux(i,j,xsize(3))=bzxn(i,j)+dpdxzn(i,j)
-                uy(i,j,xsize(3))=bzyn(i,j)+dpdyzn(i,j)
+                ux(i,j,xsize(3))=bc_set*bzxn(i,j)+(one-bc_set)*ux(i,j,xsize(3))+dpdxzn(i,j)
+                uy(i,j,xsize(3))=bc_set*bzyn(i,j)+(one-bc_set)*uy(i,j,xsize(3))+dpdyzn(i,j)
                 uz(i,j,xsize(3))=bzzn(i,j)
              enddo
           enddo
