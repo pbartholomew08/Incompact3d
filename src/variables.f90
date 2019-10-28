@@ -201,6 +201,28 @@ contains
     dpdxzn=zero
     dpdyzn=zero
 
+    allocate(dqdyx1(xsize(2),xsize(3)),dqdyxn(xsize(2),xsize(3)))
+    allocate(dqdzx1(xsize(2),xsize(3)),dqdzxn(xsize(2),xsize(3)))
+    allocate(dqdxy1(xsize(1),xsize(3)),dqdxyn(xsize(1),xsize(3)))
+    allocate(dqdzy1(xsize(1),xsize(3)),dqdzyn(xsize(1),xsize(3)))
+    allocate(dqdxz1(xsize(1),xsize(2)),dqdxzn(xsize(1),xsize(2)))
+    allocate(dqdyz1(xsize(1),xsize(2)),dqdyzn(xsize(1),xsize(2)))
+
+    dqdyx1=zero
+    dqdzx1=zero
+    dqdyxn=zero
+    dqdzxn=zero
+    !!
+    dqdxy1=zero
+    dqdzy1=zero
+    dqdxyn=zero
+    dqdzyn=zero
+    !!
+    dqdxz1=zero
+    dqdyz1=zero
+    dqdxzn=zero
+    dqdyzn=zero
+    
     !arrays for visualization!pay attention to the size!
     allocate(uvisu(xstV(1):xenV(1),xstV(2):xenV(2),xstV(3):xenV(3)))
 

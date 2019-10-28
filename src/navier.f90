@@ -23,15 +23,22 @@ contains
     USE decomp_2d_poisson, ONLY : poisson
     USE var, ONLY : itr, itime, ifirst
     USE var, ONLY : nzmsize
-    USE var, ONLY : dv3
-    USE var, ONLY : two
+    USE var, ONLY : dv3, po3
     USE var, ONLY : qq3, qx1, qy1, qz1
+    USE var, ONLY : zero, two
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff, ifreesurface
 
+    USE var, ONLY : td1, te1, tf1
+    USE param, ONLY : gdt
+
     USE div, ONLY : divergence
 
-    USE param, ONLY : gdt, itr
+    USE param, ONLY : itr
+    USE param, ONLY : ipdelta, solveq
+
+    use param, only : dens1, dens2
+    use var, only : dpdyx1, dpdyxn, dpdzx1, dpdzxn, dpdxy1, dpdxyn, dpdzy1, dpdzyn
 
     IMPLICIT NONE
 
@@ -48,15 +55,16 @@ contains
 
     !! Locals
     INTEGER :: nlock, poissiter, piter
-    LOGICAL :: converged, solvedphat
+    LOGICAL :: converged
     REAL(mytype) :: atol, rtol
     REAL(mytype) :: divup3norm
+    REAL(mytype) :: rho0
 
     nlock = 1 !! Corresponds to computing div(u*)
     converged = .FALSE.
     poissiter = 0
 
-    atol = 1.0e-14_mytype !! Absolute tolerance for Poisson solver
+    atol = 1.0e-9_mytype !! Absolute tolerance for Poisson solver
     rtol = 1.0e-9_mytype !! Relative tolerance for Poisson solver
 
     IF (ilmn.AND.ivarcoeff) THEN
@@ -65,24 +73,57 @@ contains
        CALL momentum_to_velocity(rho1, ux1, uy1, uz1)
     ENDIF
 
-    CALL divergence(pp3(:,:,:,1),rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
-    IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
-       dv3(:,:,:) = pp3(:,:,:,1) !! Store div(u*) in dv3
+    rho0 = min(dens1, dens2)
 
+    td1(:,:,:) = ux1(:,:,:)
+    te1(:,:,:) = uy1(:,:,:)
+    tf1(:,:,:) = uz1(:,:,:)
+    if (solveq) then
+       td1(:,:,:) = td1(:,:,:) - qx1(:,:,:) / rho1(:,:,:,1)
+       te1(:,:,:) = te1(:,:,:) - qy1(:,:,:) / rho1(:,:,:,1)
+       tf1(:,:,:) = tf1(:,:,:) - qz1(:,:,:) / rho1(:,:,:,1)
+    endif
+    if (ipdelta) then
+       td1(:,:,:) = td1(:,:,:) - px1(:,:,:) / rho0
+       te1(:,:,:) = te1(:,:,:) - py1(:,:,:) / rho0
+       tf1(:,:,:) = tf1(:,:,:) - pz1(:,:,:) / rho0
+    endif
+
+    IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
        IF ((itime.GT.1).AND.(itr.EQ.1)) THEN
           !! Extrapolate pressure
           pp3(:,:,:,1) = two * pp3(:,:,:,2) - pp3(:,:,:,3)
+          ! if (ipdelta) then
+          !    !! Convert to pressure correction
+          !    pp3(:,:,:,1) = pp3(:,:,:,1) - pp3(:,:,:,2)
+          ! endif
+          if (solveq) then
+             !! Subtract away source terms
+             pp3(:,:,:,1) = pp3(:,:,:,1) - qq3(:,:,:)
+          endif
           CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
+
+          !! Add extrapolated velocity to pre_correc (without setting BCs)
+          dpdyx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdyx1(:,:)
+          dpdzx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdzx1(:,:)
+          dpdyxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdyxn(:,:)
+          dpdzxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdzxn(:,:)
+
+          dpdxy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdxy1(:,:)
+          dpdzy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdzy1(:,:)
+          dpdxyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdxyn(:,:)
+          dpdzyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdzyn(:,:)
+          call pre_correc(td1, te1, tf1, ep1, .false.)
 
           !! Store previous pressure field
           pp3(:,:,:,3) = pp3(:,:,:,2)
        ENDIF
     ENDIF
+    CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
+    dv3(:,:,:) = pp3(:,:,:,1) !! Store div(u*) in dv3
 
     DO WHILE(.NOT.converged)
        IF (ivarcoeff.OR.ifreesurface) THEN
-          qx1 = px1; qy1 = py1; qz1 = pz1
-
           !! Test convergence
           CALL test_varcoeff(converged, divup3norm, pp3, dv3, atol, poissiter)
 
@@ -97,6 +138,7 @@ contains
           CALL poisson(pp3(:,:,:,1))
 
           !! Need to update pressure gradient here for varcoeff
+          qx1 = px1; qy1 = py1; qz1 = pz1 !! First store grad(p) for reuse in pressure correction
           CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
 
           IF (((.NOT.ilmn).AND.(.NOT.ivarcoeff)).AND.(.NOT.ifreesurface)) THEN
@@ -109,6 +151,22 @@ contains
 
        poissiter = poissiter + 1
     ENDDO
+
+    if (ipdelta) then
+       !! Add old pressure to pressure correction to get new pressure
+       pp3(:,:,:,1) = pp3(:,:,:,1) + pp3(:,:,:,3)
+    endif
+    if (solveq) then
+       !! We have solved for driving pressure, add pseudo pressure field to get pressure
+       pp3(:,:,:,1) = pp3(:,:,:,1) + qq3(:,:,:)
+    endif
+    if (ipdelta.or.solveq) then
+       !! Need to recompute pressure gradient
+       CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
+    endif
+
+    !! Store new pressure
+    pp3(:,:,:,2) = pp3(:,:,:,1)
 
     IF (ilmn.AND.ivarcoeff) THEN
        !! Variable-coefficient Poisson solver works on div(u), not div(rho u)
@@ -152,17 +210,7 @@ contains
        uy(:,:,:)=uy(:,:,:)-py(:,:,:)
        uz(:,:,:)=uz(:,:,:)-pz(:,:,:)
     else
-       if (ipdelta) then
-          !! Get previous iter pressure gradient
-          CALL gradp(px,py,pz,pp3(:,:,:,3))
-          ux(:,:,:) = ux(:,:,:) + px(:,:,:) / rho(:,:,:,1)
-          uy(:,:,:) = uy(:,:,:) + py(:,:,:) / rho(:,:,:,1)
-          uz(:,:,:) = uz(:,:,:) + pz(:,:,:) / rho(:,:,:,1)
-          !! Reset pressure gradient
-          CALL gradp(px,py,pz,pp3(:,:,:,2))
-       endif
-       
-       if (itime.gt.ifirst) then
+       if ((itime.gt.ifirst).or.ipdelta) then
           !! Compute rho0
           rhomin = minval(rho)
           call MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
@@ -378,10 +426,10 @@ contains
     endif
 
     if (ifreesurface) then
-       if (itime.eq.ifirst) then
-          invrho(:,:,:) = one / rho1(:,:,:,1)
-       else
+       if (itime.gt.ifirst) then
           invrho(:,:,:) = one / min(dens1, dens2)
+       else
+          invrho(:,:,:) = one / rho1(:,:,:,1)
        endif
     else
        invrho(:,:,:) = one

@@ -182,6 +182,9 @@ module variables
   real(mytype), save, allocatable, dimension(:,:) :: dpdyx1,dpdyxn,dpdzx1,dpdzxn
   real(mytype), save, allocatable, dimension(:,:) :: dpdxy1,dpdxyn,dpdzy1,dpdzyn
   real(mytype), save, allocatable, dimension(:,:) :: dpdxz1,dpdxzn,dpdyz1,dpdyzn
+  real(mytype), save, allocatable, dimension(:,:) :: dqdyx1,dqdyxn,dqdzx1,dqdzxn
+  real(mytype), save, allocatable, dimension(:,:) :: dqdxy1,dqdxyn,dqdzy1,dqdzyn
+  real(mytype), save, allocatable, dimension(:,:) :: dqdxz1,dqdxzn,dqdyz1,dqdyzn
 
   !module inflow
   real(mytype), save, allocatable, dimension(:,:) :: bxx1,bxy1,bxz1,bxxn,bxyn,bxzn,bxo,byo,bzo
@@ -260,6 +263,8 @@ module param
   real(mytype) :: wrotation,ro
   real(mytype) :: dens1, dens2
   real(mytype) :: visc1, visc2
+  logical :: ipdelta !! Solve Poisson equation for pressure correction? TRUE: yes; FALSE: no (default)
+  logical :: solveq  !! Compute a source-based pseudo pressure field?
 
   !! Numerics control
   integer :: ifirstder,isecondder,ipinter

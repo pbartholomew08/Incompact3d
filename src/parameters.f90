@@ -70,7 +70,8 @@ subroutine parameter(input_i3d)
        ifreesurface, ilevelset, &
        nclx1, nclxn, ncly1, nclyn, nclz1, nclzn, &
        ivisu, ipost, &
-       gravx, gravy, gravz
+       gravx, gravy, gravz, &
+       ipdelta
   NAMELIST /NumOptions/ ifirstder, isecondder, itimescheme, nu0nu, cnu, fpi2, ipinter
   NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu, iprocessing
   NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat
@@ -434,6 +435,10 @@ subroutine parameter_defaults()
   dens2 = one
   visc1 = one
   visc2 = one
+
+  !! Pressure solver
+  ipdelta = .FALSE.
+  solveq = .TRUE.
 
   !! IBM stuff
   nraf = 0

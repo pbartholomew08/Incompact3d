@@ -258,11 +258,9 @@ contains
     USE decomp_2d
 
     implicit none
-
-    !! INPUTS
+    
+    !! INPUTS/OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1, uy1, uz1
-
-    !! OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1, duy1, duz1
 
     if (itimescheme.eq.7) then
