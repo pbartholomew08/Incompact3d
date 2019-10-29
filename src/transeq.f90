@@ -372,7 +372,7 @@ CONTAINS
     endif
 
     ! call source_smoothing(sx1, sy1, sz1, rho1)
-    if (solveq) then
+    if (solveq.and.(itime.eq.1)) then
        call calcq(sx1, sy1, sz1, rho1) ! Computes a pseudo pressure field to balance source terms
     endif
 
@@ -397,50 +397,19 @@ CONTAINS
 
   subroutine calcq(sx1, sy1, sz1, rho1)
 
-    use decomp_2d, only : mytype, xsize, ysize, zsize
+    use decomp_2d, only : mytype, xsize
     use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
 
     use div, only : divergence
     use decomp_2d_poisson, only : poisson
     use navier, only : gradp
 
-    use variables, only : sx, cifxp6, cisxp6, ciwxp6
-    use variables, only : sy, cifyp6, cisyp6, ciwyp6
-    use variables, only : sz, cifzp6, ciszp6, ciwzp6
-
-    use param, only : zero
-    use decomp_2d, only : xstart, xend
-    use variables, only : ny, nz
-    
-    use var, only : ta1, tb1, tc1
-    use var, only : ep1, drho1, qx1, qy1, qz1, px1, py1, pz1
+    use var, only : ep1, drho1, px1, py1, pz1
     use var, only : qq3, divu3, pp3
 
-    use var, only : rhop1 => pgy1
-    use var, only : rhop12 => uyp2, rhop2 => upi2
-    use var, only : rhop23 => uzp3, rhop3 => po3
-
-    use var, only : rhox1 => ta1, rhoy1 => tb1, rhoz1 => tc1
-    use var, only : rho2, rhoy2 => ta2, rhoz2 => tb2
-    use var, only : rho3, rhoz3 => ta3
-
-    use var, only : ux1, di1
-    use var, only : uy2, dipp2
-    use var, only : uz3, dipp3
-
-    use var, only : ph1, ph2, ph3, ph4
-    use var, only : nxmsize, nymsize, nzmsize
-
     use param, only : itr, gdt, nrhotime
-    use param, only : nclx1, nclxn, ncly1, nclyn, nclz1, nclzn
 
     use param, only : itime
-    use variables, only : dpdyx1, dpdyxn, dpdzx1, dpdzxn
-    use variables, only : dpdxy1, dpdxyn, dpdzy1, dpdzyn
-    use variables, only : dpdxz1, dpdxzn, dpdyz1, dpdyzn
-    use variables, only : dqdyx1, dqdyxn, dqdzx1, dqdzxn
-    use variables, only : dqdxy1, dqdxyn, dqdzy1, dqdzyn
-    use variables, only : dqdxz1, dqdxzn, dqdyz1, dqdyzn
     
     implicit none
 
@@ -449,60 +418,18 @@ CONTAINS
 
     integer :: nlock
 
-    !! Get intentsive source term
-    ta1(:,:,:) = sx1(:,:,:) !/ rho1(:,:,:,1)
-    tb1(:,:,:) = sy1(:,:,:) !/ rho1(:,:,:,1)
-    tc1(:,:,:) = sz1(:,:,:) !/ rho1(:,:,:,1)
-
-    if (nclx1.eq.2) then
-       ta1(1,:,:) = zero
-       tb1(1,:,:) = zero
-    endif
-    if (nclxn.eq.2) then
-       ta1(xsize(1),:,:) = zero
-       tb1(xsize(1),:,:) = zero
-    endif
-    if ((ncly1.eq.2).and.(xstart(2).eq.1)) then
-       tc1(:,1,:) = zero
-       tb1(:,1,:) = zero
-    endif
-    if ((nclyn.eq.2).and.(xend(2).eq.ny)) then
-       ta1(:,xsize(2),:) = zero
-       tb1(:,xsize(2),:) = zero
-    endif
-    if ((nclz1.eq.2).and.(xstart(3).eq.1)) then
-       tc1(:,:,1) = zero
-    endif
-    if ((nclzn.eq.2).and.(xend(3).eq.nz)) then
-       tc1(:,:,xsize(3)) = zero
-    endif
-
-    !! Compute rho div(f)
+    !! Compute div(rho f)
     nlock = -1
-    CALL divergence(qq3(:,:,:),rho1,ta1,tb1,tc1,ep1,drho1,divu3,-1)
+    CALL divergence(qq3(:,:,:),rho1,sx1,sy1,sz1,ep1,drho1,divu3,-1)
 
     !! Compute q
     call poisson(qq3)
     qq3(:,:,:) = gdt(itr) * qq3(:,:,:)      !! Scale qq3 like pp3
 
-    !! Compute grad(q)
-    call gradp(qx1, qy1, qz1, qq3)
-    dqdyx1(:,:) = dpdyx1(:,:); dqdyxn(:,:) = dpdyxn(:,:)
-    dqdzx1(:,:) = dpdzx1(:,:); dqdzxn(:,:) = dpdzxn(:,:)
-    dqdxy1(:,:) = dpdxy1(:,:); dqdxyn(:,:) = dpdxyn(:,:)
-    dqdzy1(:,:) = dpdzy1(:,:); dqdzyn(:,:) = dpdzyn(:,:)
-    dqdxz1(:,:) = dpdxz1(:,:); dqdxzn(:,:) = dpdxzn(:,:)
-    dqdyz1(:,:) = dpdyz1(:,:); dqdyzn(:,:) = dpdyzn(:,:)
-
-    !! Reset pressure gradients
-    call gradp(px1, py1, pz1, pp3(:,:,:,1))
-    if (itime.eq.1) then !! Add sources to pressure gradients at wall
-       dpdyx1(:,:) = dpdyx1(:,:) + dqdyx1(:,:); dpdyxn(:,:) = dpdyxn(:,:) + dqdyxn(:,:)
-       dpdzx1(:,:) = dpdzx1(:,:) + dqdzx1(:,:); dpdzxn(:,:) = dpdzxn(:,:) + dqdzxn(:,:)
-       dpdxy1(:,:) = dpdxy1(:,:) + dqdxy1(:,:); dpdxyn(:,:) = dpdxyn(:,:) + dqdxyn(:,:)
-       dpdzy1(:,:) = dpdzy1(:,:) + dqdzy1(:,:); dpdzyn(:,:) = dpdzyn(:,:) + dqdzyn(:,:)
-       dpdxz1(:,:) = dpdxz1(:,:) + dqdxz1(:,:); dpdxzn(:,:) = dpdxzn(:,:) + dqdxzn(:,:)
-       dpdyz1(:,:) = dpdyz1(:,:) + dqdyz1(:,:); dpdyzn(:,:) = dpdyzn(:,:) + dqdyzn(:,:)
+    if (itime.eq.1) then !! Add to pressure and recompute gradients
+       pp3(:,:,:,1) = pp3(:,:,:,1) + qq3(:,:,:)
+       call gradp(px1, py1, pz1, pp3(:,:,:,1))
+       pp3(:,:,:,2) = pp3(:,:,:,1)
     endif
   endsubroutine calcq
 

@@ -24,7 +24,7 @@ contains
     USE var, ONLY : itr, itime, ifirst
     USE var, ONLY : nzmsize
     USE var, ONLY : dv3, po3
-    USE var, ONLY : qq3, qx1, qy1, qz1
+    USE var, ONLY : qx1, qy1, qz1
     USE var, ONLY : zero, two
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff, ifreesurface
@@ -78,11 +78,6 @@ contains
     td1(:,:,:) = ux1(:,:,:)
     te1(:,:,:) = uy1(:,:,:)
     tf1(:,:,:) = uz1(:,:,:)
-    if (solveq) then
-       td1(:,:,:) = td1(:,:,:) - qx1(:,:,:) / rho1(:,:,:,1)
-       te1(:,:,:) = te1(:,:,:) - qy1(:,:,:) / rho1(:,:,:,1)
-       tf1(:,:,:) = tf1(:,:,:) - qz1(:,:,:) / rho1(:,:,:,1)
-    endif
     if (ipdelta) then
        td1(:,:,:) = td1(:,:,:) - px1(:,:,:) / rho0
        te1(:,:,:) = te1(:,:,:) - py1(:,:,:) / rho0
@@ -93,31 +88,27 @@ contains
        IF ((itime.GT.1).AND.(itr.EQ.1)) THEN
           !! Extrapolate pressure
           pp3(:,:,:,1) = two * pp3(:,:,:,2) - pp3(:,:,:,3)
-          ! if (ipdelta) then
-          !    !! Convert to pressure correction
-          !    pp3(:,:,:,1) = pp3(:,:,:,1) - pp3(:,:,:,2)
-          ! endif
-          if (solveq) then
-             !! Subtract away source terms
-             pp3(:,:,:,1) = pp3(:,:,:,1) - qq3(:,:,:)
+          if (ipdelta) then
+             !! Convert to pressure correction
+             pp3(:,:,:,1) = pp3(:,:,:,1) - pp3(:,:,:,2)
           endif
           CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
 
-          !! Add extrapolated velocity to pre_correc (without setting BCs)
-          dpdyx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdyx1(:,:)
-          dpdzx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdzx1(:,:)
-          dpdyxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdyxn(:,:)
-          dpdzxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdzxn(:,:)
+          ! !! Add extrapolated grad(p) to pre_correc (without setting BCs)
+          ! dpdyx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdyx1(:,:)
+          ! dpdzx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdzx1(:,:)
+          ! dpdyxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdyxn(:,:)
+          ! dpdzxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdzxn(:,:)
 
-          dpdxy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdxy1(:,:)
-          dpdzy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdzy1(:,:)
-          dpdxyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdxyn(:,:)
-          dpdzyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdzyn(:,:)
-          call pre_correc(td1, te1, tf1, ep1, .false.)
-
-          !! Store previous pressure field
-          pp3(:,:,:,3) = pp3(:,:,:,2)
+          ! dpdxy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdxy1(:,:)
+          ! dpdzy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdzy1(:,:)
+          ! dpdxyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdxyn(:,:)
+          ! dpdzyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdzyn(:,:)
+          ! call pre_correc(td1, te1, tf1, ep1, .false.)
        ENDIF
+
+       !! Store previous pressure field
+       pp3(:,:,:,3) = pp3(:,:,:,2)
     ENDIF
     CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
     dv3(:,:,:) = pp3(:,:,:,1) !! Store div(u*) in dv3
@@ -156,10 +147,6 @@ contains
        !! Add old pressure to pressure correction to get new pressure
        pp3(:,:,:,1) = pp3(:,:,:,1) + pp3(:,:,:,3)
     endif
-    if (solveq) then
-       !! We have solved for driving pressure, add pseudo pressure field to get pressure
-       pp3(:,:,:,1) = pp3(:,:,:,1) + qq3(:,:,:)
-    endif
     if (ipdelta.or.solveq) then
        !! Need to recompute pressure gradient
        CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
@@ -184,7 +171,7 @@ contains
   ! output : ux,uy,uz
   !written by SL 2018
   !********************************************************************
-  subroutine cor_vel (rho,ux,uy,uz,px,py,pz,pp3)
+  subroutine cor_vel (rho,ux,uy,uz,px,py,pz)
 
     USE MPI
     
@@ -200,7 +187,6 @@ contains
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(inout) :: px,py,pz
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime),intent(in) :: rho
-    REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress), intent(in) :: pp3
 
     integer :: ierr
     real(mytype) :: rhomin, rho0
