@@ -438,7 +438,7 @@ subroutine parameter_defaults()
 
   !! Pressure solver
   ipdelta = .FALSE.
-  solveq = .TRUE.
+  solveq = .FALSE.
 
   !! IBM stuff
   nraf = 0

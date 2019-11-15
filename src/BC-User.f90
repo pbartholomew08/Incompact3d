@@ -52,7 +52,7 @@ contains
 
     !! Set the circle centre
     x0 = zero
-    y0 = zero !-yly / four
+    y0 = -yly / four
     z0 = zero
 
     !! Set the circle radius
@@ -68,8 +68,8 @@ contains
              do i=1,xsize(1)
                 x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
 
-                ! r = sqrt((x - x0)**2 + (y - y0)**2 + (z - z0)**2) !! Sphere
-                r = sqrt((x - x0)**2 + (y - y0)**2) !! Cylinder
+                r = sqrt((x - x0)**2 + (y - y0)**2 + (z - z0)**2) !! Sphere
+                ! r = sqrt((x - x0)**2 + (y - y0)**2) !! Cylinder
                 
                 ux1(i,j,k) = u1
                 uy1(i,j,k) = u2

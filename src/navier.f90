@@ -24,12 +24,12 @@ contains
     USE var, ONLY : itr, itime, ifirst
     USE var, ONLY : nzmsize
     USE var, ONLY : dv3, po3
-    USE var, ONLY : qx1, qy1, qz1
-    USE var, ONLY : zero, two
+    USE var, ONLY : qx1, qy1, qz1, qq3
+    USE var, ONLY : zero, one, two
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff, ifreesurface
 
-    USE var, ONLY : td1, te1, tf1
+    USE var, ONLY : uxhat1 => td1, uyhat1 => te1, uzhat1 => tf1, tg1
     USE param, ONLY : gdt
 
     USE div, ONLY : divergence
@@ -38,12 +38,11 @@ contains
     USE param, ONLY : ipdelta, solveq
 
     use param, only : dens1, dens2
-    use var, only : dpdyx1, dpdyxn, dpdzx1, dpdzxn, dpdxy1, dpdxyn, dpdzy1, dpdzyn
 
     IMPLICIT NONE
 
     !! Inputs
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
+    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ep1
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime), INTENT(IN) :: rho1
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime), INTENT(IN) :: drho1
@@ -60,7 +59,6 @@ contains
     REAL(mytype) :: divup3norm
     REAL(mytype) :: rho0
 
-    nlock = 1 !! Corresponds to computing div(u*)
     converged = .FALSE.
     poissiter = 0
 
@@ -75,85 +73,78 @@ contains
 
     rho0 = min(dens1, dens2)
 
-    td1(:,:,:) = ux1(:,:,:)
-    te1(:,:,:) = uy1(:,:,:)
-    tf1(:,:,:) = uz1(:,:,:)
     if (ipdelta) then
-       td1(:,:,:) = td1(:,:,:) - px1(:,:,:) / rho0
-       te1(:,:,:) = te1(:,:,:) - py1(:,:,:) / rho0
-       tf1(:,:,:) = tf1(:,:,:) - pz1(:,:,:) / rho0
+       ux1(:,:,:) = rho0 * ux1(:,:,:) - (rho0 / rho1(:,:,:,1)) * px1(:,:,:)
+       uy1(:,:,:) = rho0 * uy1(:,:,:) - (rho0 / rho1(:,:,:,1)) * py1(:,:,:)
+       uz1(:,:,:) = rho0 * uz1(:,:,:) - (rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+
+       pp3(:,:,:,1) = zero
+       CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
+    else
+       ux1(:,:,:) = rho0 * ux1(:,:,:)
+       uy1(:,:,:) = rho0 * uy1(:,:,:)
+       uz1(:,:,:) = rho0 * uz1(:,:,:)
     endif
 
+    uxhat1(:,:,:) = ux1(:,:,:)
+    uyhat1(:,:,:) = uy1(:,:,:)
+    uzhat1(:,:,:) = uz1(:,:,:)
+
     IF ((ilmn.AND.ivarcoeff).OR.ifreesurface) THEN
-       IF ((itime.GT.1).AND.(itr.EQ.1)) THEN
+       IF ((itime.GT.(ifirst + 1)).AND.(itr.EQ.1)) THEN
           !! Extrapolate pressure
           pp3(:,:,:,1) = two * pp3(:,:,:,2) - pp3(:,:,:,3)
-          if (ipdelta) then
-             !! Convert to pressure correction
+          if (ipdelta) then !! Convert to pressure correction
              pp3(:,:,:,1) = pp3(:,:,:,1) - pp3(:,:,:,2)
           endif
           CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
-
-          ! !! Add extrapolated grad(p) to pre_correc (without setting BCs)
-          ! dpdyx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdyx1(:,:)
-          ! dpdzx1(:,:) = rho0 * (1._mytype / rho1(1,:,:,1) - 1._mytype / rho0) * dpdzx1(:,:)
-          ! dpdyxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdyxn(:,:)
-          ! dpdzxn(:,:) = rho0 * (1._mytype / rho1(xsize(1),:,:,1) - 1._mytype / rho0) * dpdzxn(:,:)
-
-          ! dpdxy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdxy1(:,:)
-          ! dpdzy1(:,:) = rho0 * (1._mytype / rho1(:,1,:,1) - 1._mytype / rho0) * dpdzy1(:,:)
-          ! dpdxyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdxyn(:,:)
-          ! dpdzyn(:,:) = rho0 * (1._mytype / rho1(:,xsize(2),:,1) - 1._mytype / rho0) * dpdzyn(:,:)
-          ! call pre_correc(td1, te1, tf1, ep1, .false.)
        ENDIF
 
        !! Store previous pressure field
        pp3(:,:,:,3) = pp3(:,:,:,2)
     ENDIF
-    CALL divergence(pp3(:,:,:,1),rho1,td1,te1,tf1,ep1,drho1,divu3,nlock)
-    dv3(:,:,:) = pp3(:,:,:,1) !! Store div(u*) in dv3
 
     DO WHILE(.NOT.converged)
-       IF (ivarcoeff.OR.ifreesurface) THEN
-          !! Test convergence
+       !! Compute intermediate velocity field using current pressure field
+       uxhat1(:,:,:) = ux1(:,:,:) - (rho0 / rho1(:,:,:,1) - one) * px1(:,:,:)
+       uyhat1(:,:,:) = uy1(:,:,:) - (rho0 / rho1(:,:,:,1) - one) * py1(:,:,:)
+       uzhat1(:,:,:) = uz1(:,:,:) - (rho0 / rho1(:,:,:,1) - one) * pz1(:,:,:)
+       
+       !! Set BCs on the intermediate velocity field
+       tg1(:,:,:) = one
+       call pre_correc(uxhat1,uyhat1,uzhat1,tg1,ep1)
+
+       !! Compute div(U*)
+       nlock = 1 !! Corresponds to computing div(u*)
+       CALL divergence(pp3(:,:,:,1),rho1,uxhat1,uyhat1,uzhat1,ep1,drho1,divu3,nlock)
+       dv3(:,:,:) = pp3(:,:,:,1) !! Store div(u*) in dv3
+
+       !! Solve Poisson equation
+       CALL poisson(pp3(:,:,:,1))
+
+       if (ivarcoeff.or.ifreesurface) then
           CALL test_varcoeff(converged, divup3norm, pp3, dv3, atol, poissiter)
+          pp3(:,:,:,2) = pp3(:,:,:,1)
+       endif
 
-          IF (.NOT.converged) THEN
-             !! Evaluate additional RHS terms
-             CALL calc_varcoeff_rhs(pp3, converged, rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, &
-                  poissiter, rtol, divup3norm)
-          ENDIF
-       ENDIF
+       !! Need to update pressure gradient here for varcoeff
+       CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
 
-       IF (.NOT.converged) THEN
-          CALL poisson(pp3(:,:,:,1))
-
-          !! Need to update pressure gradient here for varcoeff
-          qx1 = px1; qy1 = py1; qz1 = pz1 !! First store grad(p) for reuse in pressure correction
-          CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
-
-          IF (((.NOT.ilmn).AND.(.NOT.ivarcoeff)).AND.(.NOT.ifreesurface)) THEN
-             !! Once-through solver
-             !! - Incompressible flow
-             !! - LMN - constant-coefficient solver
-             converged = .TRUE.
-          ENDIF
+       IF ((((.NOT.ilmn).AND.(.NOT.ivarcoeff)).AND.(.NOT.ifreesurface)) &
+            .OR. (ifreesurface.and.(itime.gt.(ifirst + 1)))) THEN
+          !! Once-through solver
+          !! - Incompressible flow
+          !! - LMN - constant-coefficient solver
+          converged = .TRUE.
        ENDIF
 
        poissiter = poissiter + 1
     ENDDO
 
-    if (ipdelta) then
-       !! Add old pressure to pressure correction to get new pressure
-       pp3(:,:,:,1) = pp3(:,:,:,1) + pp3(:,:,:,3)
-    endif
-    if (ipdelta.or.solveq) then
-       !! Need to recompute pressure gradient
-       CALL gradp(px1,py1,pz1,pp3(:,:,:,1))
-    endif
-
-    !! Store new pressure
-    pp3(:,:,:,2) = pp3(:,:,:,1)
+    !! Set velocity to intermediate velocity field
+    ux1(:,:,:) = uxhat1(:,:,:)
+    uy1(:,:,:) = uyhat1(:,:,:)
+    uz1(:,:,:) = uzhat1(:,:,:)
 
     IF (ilmn.AND.ivarcoeff) THEN
        !! Variable-coefficient Poisson solver works on div(u), not div(rho u)
@@ -181,6 +172,7 @@ contains
 
     USE var, only : nzmsize
     USE var, only : qx1, qy1, qz1
+    USE var, only : pp3
 
     implicit none
 
@@ -196,26 +188,25 @@ contains
        uy(:,:,:)=uy(:,:,:)-py(:,:,:)
        uz(:,:,:)=uz(:,:,:)-pz(:,:,:)
     else
-       if ((itime.gt.ifirst).or.ipdelta) then
-          !! Compute rho0
-          rhomin = minval(rho)
-          call MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
+       !! Compute rho0
+       rhomin = minval(rho)
+       call MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
 
-          !! First correct according to new pressure gradient
-          ux(:,:,:) = ux(:,:,:) - px(:,:,:) / rho0
-          uy(:,:,:) = uy(:,:,:) - py(:,:,:) / rho0
-          uz(:,:,:) = uz(:,:,:) - pz(:,:,:) / rho0
+       !! First correct according to new pressure gradient
+       ux(:,:,:) = (ux(:,:,:) - px(:,:,:)) / rho0
+       uy(:,:,:) = (uy(:,:,:) - py(:,:,:)) / rho0
+       uz(:,:,:) = (uz(:,:,:) - pz(:,:,:)) / rho0
 
-          !! Now correct with the previous pressure gradient
-          ux(:,:,:)=ux(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qx1(:,:,:)
-          uy(:,:,:)=uy(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qy1(:,:,:)
-          uz(:,:,:)=uz(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qz1(:,:,:)
-       else
-          ux(:,:,:)=ux(:,:,:)-px(:,:,:) / rho(:,:,:,1)
-          uy(:,:,:)=uy(:,:,:)-py(:,:,:) / rho(:,:,:,1)
-          uz(:,:,:)=uz(:,:,:)-pz(:,:,:) / rho(:,:,:,1)
-       endif
+       ! !! Now correct with the previous pressure gradient
+       ! ux(:,:,:)=ux(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qx1(:,:,:)
+       ! uy(:,:,:)=uy(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qy1(:,:,:)
+       ! uz(:,:,:)=uz(:,:,:)-(one / rho(:,:,:,1) - one / rho0) * qz1(:,:,:)
+    endif
 
+    if (ipdelta) then
+       pp3(:,:,:,1) = pp3(:,:,:,1) + pp3(:,:,:,3)
+       CALL gradp(px,py,pz,pp3(:,:,:,1))
+       pp3(:,:,:,2) = pp3(:,:,:,1)
     endif
 
     return
@@ -353,31 +344,24 @@ contains
     return
   end subroutine gradp
   !*******************************************************************
-  subroutine pre_correc(ux,uy,uz,ep,enforce_bc)
+  subroutine pre_correc(ux,uy,uz,ep,invrho)
 
     USE decomp_2d
     USE variables
     USE param
     USE var
-    USE var, only : invrho => ta1
     USE MPI
 
     implicit none
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz,ep
-    logical, intent(in) :: enforce_bc
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)), intent(in) :: invrho
     integer :: i,j,k,is
-    real(mytype) :: ut,ut1,utt,ut11,bc_set
+    real(mytype) :: ut,ut1,utt,ut11
 
     integer :: code
     integer, dimension(2) :: dims, dummy_coords
     logical, dimension(2) :: dummy_periods
-
-    if (enforce_bc) then
-       bc_set = one
-    else
-       bc_set = zero
-    endif
 
     call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, code)
 
@@ -411,16 +395,6 @@ contains
 
     endif
 
-    if (ifreesurface) then
-       if (itime.gt.ifirst) then
-          invrho(:,:,:) = one / min(dens1, dens2)
-       else
-          invrho(:,:,:) = one / rho1(:,:,:,1)
-       endif
-    else
-       invrho(:,:,:) = one
-    endif
-
     if (nclx1==2) then
        do k=1,xsize(3)
           do j=1,xsize(2)
@@ -431,8 +405,8 @@ contains
        do k=1,xsize(3)
           do j=1,xsize(2)
              ux(1 ,j,k)=bxx1(j,k)
-             uy(1 ,j,k)=bc_set*bxy1(j,k)+(one-bc_set)*uy(1,j,k)+dpdyx1(j,k)
-             uz(1 ,j,k)=bc_set*bxz1(j,k)+(one-bc_set)*uz(1,j,k)+dpdzx1(j,k)
+             uy(1 ,j,k)=bxy1(j,k)+dpdyx1(j,k)
+             uz(1 ,j,k)=bxz1(j,k)+dpdzx1(j,k)
           enddo
        enddo
     endif
@@ -446,8 +420,8 @@ contains
        do k=1,xsize(3)
           do j=1,xsize(2)
              ux(nx,j,k)=bxxn(j,k)
-             uy(nx,j,k)=bc_set*bxyn(j,k)+(one-bc_set)*uy(nx,j,k)+dpdyxn(j,k)
-             uz(nx,j,k)=bc_set*bxzn(j,k)+(one-bc_set)*uz(nx,j,k)+dpdzxn(j,k)
+             uy(nx,j,k)=bxyn(j,k)+dpdyxn(j,k)
+             uz(nx,j,k)=bxzn(j,k)+dpdzxn(j,k)
           enddo
        enddo
     endif
@@ -480,9 +454,9 @@ contains
           enddo
           do k=1,xsize(3)
              do i=1,xsize(1)
-                ux(i,1,k)=bc_set*byx1(i,k)+(one-bc_set)*ux(i,1,k)+dpdxy1(i,k)
+                ux(i,1,k)=byx1(i,k)+dpdxy1(i,k)
                 uy(i,1,k)=byy1(i,k)
-                uz(i,1,k)=bc_set*byz1(i,k)+(one-bc_set)*uz(i,1,k)+dpdzy1(i,k)
+                uz(i,1,k)=byz1(i,k)+dpdzy1(i,k)
              enddo
           enddo
        endif
@@ -500,17 +474,17 @@ contains
        if (dims(1)==1) then
           do k=1,xsize(3)
              do i=1,xsize(1)
-                ux(i,xsize(2),k)=bc_set*byxn(i,k)+(one-bc_set)*ux(i,xsize(2),k)+dpdxyn(i,k)
+                ux(i,xsize(2),k)=byxn(i,k)+dpdxyn(i,k)
                 uy(i,xsize(2),k)=byyn(i,k)
-                uz(i,xsize(2),k)=bc_set*byzn(i,k)+(one-bc_set)*uz(i,xsize(2),k)+dpdzyn(i,k)
+                uz(i,xsize(2),k)=byzn(i,k)+dpdzyn(i,k)
              enddo
           enddo
        elseif (ny - (nym / dims(1)) == xstart(2)) then
           do k=1,xsize(3)
              do i=1,xsize(1)
-                ux(i,xsize(2),k)=bc_set*byxn(i,k)+(one-bc_set)*ux(i,xsize(2),k)+dpdxyn(i,k)
+                ux(i,xsize(2),k)=byxn(i,k)+dpdxyn(i,k)
                 uy(i,xsize(2),k)=byyn(i,k)
-                uz(i,xsize(2),k)=bc_set*byzn(i,k)+(one-bc_set)*uz(i,xsize(2),k)+dpdzyn(i,k)
+                uz(i,xsize(2),k)=byzn(i,k)+dpdzyn(i,k)
              enddo
           enddo
        endif
@@ -549,8 +523,8 @@ contains
           enddo
           do j=1,xsize(2)
              do i=1,xsize(1)
-                ux(i,j,1)=bc_set*bzx1(i,j)+(one-bc_set)*ux(i,j,1)+dpdxz1(i,j)
-                uy(i,j,1)=bc_set*bzy1(i,j)+(one-bc_set)*uy(i,j,1)+dpdyz1(i,j)
+                ux(i,j,1)=bzx1(i,j)+dpdxz1(i,j)
+                uy(i,j,1)=bzy1(i,j)+dpdyz1(i,j)
                 uz(i,j,1)=bzz1(i,j)
              enddo
           enddo
@@ -567,8 +541,8 @@ contains
           enddo
           do j=1,xsize(2)
              do i=1,xsize(1)
-                ux(i,j,xsize(3))=bc_set*bzxn(i,j)+(one-bc_set)*ux(i,j,xsize(3))+dpdxzn(i,j)
-                uy(i,j,xsize(3))=bc_set*bzyn(i,j)+(one-bc_set)*uy(i,j,xsize(3))+dpdyzn(i,j)
+                ux(i,j,xsize(3))=bzxn(i,j)+dpdxzn(i,j)
+                uy(i,j,xsize(3))=bzyn(i,j)+dpdyzn(i,j)
                 uz(i,j,xsize(3))=bzzn(i,j)
              enddo
           enddo

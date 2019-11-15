@@ -107,7 +107,7 @@ contains
     do k=1,nzmsize
        do j=ph1%zst(2),ph1%zen(2)
           do i=ph1%zst(1),ph1%zen(1)
-             if (pp3(i,j,k).gt.tmax) tmax=pp3(i,j,k)
+             if (abs(pp3(i,j,k)).gt.tmax) tmax=abs(pp3(i,j,k))
              tmoy=tmoy+abs(pp3(i,j,k))
           enddo
        enddo

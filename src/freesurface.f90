@@ -409,13 +409,28 @@ contains
 
   subroutine update_fluid_properties(rho1, mu1, levelset1)
 
-    use decomp_2d, only : mytype, xsize
+    use decomp_2d, only : mytype, xsize, ysize, zsize
     use var, only : half, one, two, three, pi, ten, sixteen
     use var, only : dx, dy, dz
     use var, only : numscalar
     use var, only : interface_thickness
     use param, only : nrhotime, ilevelset
     use param, only : dens1, dens2, visc1, visc2
+    use var, only : nclx1, ncly1, nclz1, nclxn, nclyn, nclzn
+
+    use var, only : lsp1 => pgy1, lspv21 => pp1
+    use var, only : lsp12 => uyp2, lsp2 => upi2, lspv32 => pp2, lspv2 => ppi2
+    use var, only : lsp23 => uzp3, lsp3 => po3, lspv3 => ppi3, prop3 => dv3
+
+    use var, only : di1, sx, cifxp6, cisxp6, ciwxp6, nxmsize
+    use var, only : dipp2, sy, cifyp6, cisyp6, ciwyp6, nymsize
+    use var, only : dipp3, sz, cifzp6, ciszp6, ciwzp6, nzmsize
+    use var, only : dip3, cifip6z, cisip6z, ciwip6z, cifz6, cisz6, ciwz6
+    use var, only : dip2, cifip6y, cisip6y, ciwip6y, cify6, cisy6, ciwy6
+    use var, only : cifip6, cisip6, ciwip6, cifx6, cisx6, ciwx6
+    use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
+
+    use var, only : ph1, ph2, ph3, ph4
 
     implicit none
 
@@ -436,42 +451,244 @@ contains
 
     k99 = -(one / (two * alpha)) * log(one / 0.99_mytype - one)
 
-    !!---------------------------------
-    if (ilevelset.gt.0) then
-       !! Use levelset to set density field
-       do k = 1, xsize(3)
-          do j = 1, xsize(2)
-             do i = 1, xsize(1)
-                if (levelset1(i, j, k).gt.alpha) then
-                   !! Fluid 1
-                   rho1(i, j, k, 1) = dens1
-                   mu1(i, j, k) = visc1
-                else if (levelset1(i, j, k).lt.-alpha) then
-                   !! Fluid 2
-                   rho1(i, j, k, 1) = dens2
-                   mu1(i, j, k) = visc2
-                else
-                   !! Interface: smooth properties
-                   ! rho1(i, j, k, 1) = ((dens1 + dens2) &
-                   !      + (dens1 - dens2) * sin(pi * levelset1(i, j, k, ilevelset) / (two * eps))) &
-                   !      / (two * dens1)
-                   ! mu1(i, j, k) = ((visc1 + visc2) &
-                   !      + (visc1 - visc2) * sin(pi * levelset1(i, j, k, ilevelset) / (two * eps))) &
-                   !      / (two * visc1)
-                   
-                   ! rho1(i, j, k, 1) = dens2 + (dens1 - dens2) * half * (one + levelset1(i, j, k) / alpha &
-                   !      + (sin(pi * levelset1(i, j, k) / alpha)) / pi)
-                   ! mu1(i, j, k) = visc2 + (visc1 - visc2) * half * (one + levelset1(i, j, k) / alpha &
-                   !      + (sin(pi * levelset1(i, j, k) / alpha)) / pi)
+    !! Interpolate levelset to pressure nodes
+    if ((nclx1.ne.0).and.(nclxn.ne.0)) then
+       do i = 1, nxmsize
+          lsp1(i,:,:) = 0.5 * (levelset1(i + 1,:,:) + levelset1(i,:,:))
+       enddo
+    else
+       do i = 1, nxmsize - 1
+          lsp1(i,:,:) = 0.5 * (levelset1(i + 1,:,:)) + levelset1(i,:,:)
+       enddo
+       lsp1(nxmsize,:,:) = 0.5 * (levelset1(1,:,:) + levelset1(nxmsize,:,:))
+    endif
+    call transpose_x_to_y(lsp1,lsp12,ph4)
 
-                   !! Calculate Heaviside function using logistic function
-                   hk = one / (one + exp(-two * k99 * levelset1(i, j, k)))
-                   rho1(i, j, k, 1) = dens2 + hk * (dens1 - dens2)
-                   mu1(i, j, k) = visc2 + hk * (visc1 - visc2)
-                endif
-             enddo
+    if ((ncly1.ne.0).and.(nclyn.ne.0)) then
+       do j = 1, nymsize
+          lsp2(:,j,:) = 0.5 * (lsp12(:,j+1,:) + lsp12(:,j,:))
+       enddo
+    else
+       do j = 1, nymsize - 1
+          lsp2(:,j,:) = 0.5 * (lsp12(:,j+1,:) + lsp12(:,j,:))
+       enddo
+       lsp2(:,nymsize,:) = 0.5 * (lsp12(:,1,:) + lsp12(:,nymsize,:))
+    endif
+    call transpose_y_to_z(lsp2,lsp23,ph3)
+
+    if ((nclz1.ne.0).and.(nclzn.ne.0)) then
+       do k = 1, nzmsize
+          lsp3(:,:,k) = 0.5 * (lsp23(:,:,k+1) + lsp23(:,:,k))
+       enddo
+    else
+       do k = 1, nzmsize - 1
+          lsp3(:,:,k) = 0.5 * (lsp23(:,:,k+1) + lsp23(:,:,k))
+       enddo
+       lsp3(:,:,nzmsize) = 0.5 * (lsp23(:,:,1) + lsp23(:,:,nzmsize))
+    endif
+
+    !! Use levelset to set fluid properties (on pressure nodes)
+    do k = 1, nzmsize
+       do j = ph1%zst(2), ph1%zen(2)
+          do i = ph1%zst(1), ph1%zen(1)
+             if (lsp3(i, j, k).gt.alpha) then
+                prop3(i, j, k) = dens1
+             else if (lsp3(i, j, k).lt.-alpha) then
+                prop3(i, j, k) = dens2
+             else
+                hk = one / (one + exp(-two * k99 * lsp3(i, j, k)))
+                prop3(i, j, k) = dens2 + hk * (dens1 - dens2)
+             endif
           enddo
        enddo
+    enddo
+    
+    !! Interpolate fluid properties back to velocity mesh
+    if ((nclz1.ne.0).and.(nclzn.ne.0)) then
+       do k = 2, nzmsize
+          lspv3(:,:,k) = 0.5 * (prop3(:,:,k) + prop3(:,:,k - 1))
+       enddo
+
+       k = 1
+       if (nclz1.eq.1) then
+          !! Zero gradient
+          lspv3(:,:,k) = prop3(:,:,k)
+       else
+          lspv3(:,:,k) = 2.0 * prop3(:,:,k) - lspv3(:,:,k + 1)
+       endif
+
+       k = nzmsize + 1
+       if (nclzn.eq.1) then
+          !! Zero gradient
+          lspv3(:,:,k) = prop3(:,:,k - 1)
+       else
+          lspv3(:,:,k) = 2.0 * prop3(:,:,k - 1) - lspv3(:,:,k - 1)
+       endif
+    else
+       do k = 2, nzmsize
+          lspv3(:,:,k) = 0.5 * (prop3(:,:,k - 1) + prop3(:,:,k))
+       enddo
+
+       k = 1
+       lspv3(:,:,k) = 0.5 * (prop3(:,:,k) + prop3(:,:,nzmsize))
+    endif
+    call transpose_z_to_y(lspv3,lspv32,ph3)
+
+    if ((ncly1.ne.0).and.(nclyn.ne.0)) then
+       do j = 2, nymsize
+          lspv2(:,j,:) = 0.5 * (lspv32(:,j - 1,:) + lspv32(:,j,:))
+       enddo
+
+       j = 1
+       if (ncly1.eq.1) then
+          lspv2(:,j,:) = lspv32(:,j,:)
+       else
+          lspv2(:,j,:) = 2.0 * lspv32(:,j,:) - lspv32(:,j + 1,:)
+       endif
+
+       j = nymsize + 1
+       if (nclyn.eq.1) then
+          lspv2(:,j,:) = lspv32(:,j - 1,:)
+       else
+          lspv2(:,j,:) = 2.0 * lspv32(:,j - 1,:) - lspv2(:,j - 1,:)
+       endif
+    else
+       do j = 2, nymsize
+          lspv2(:,j,:) = 0.5 * (lspv32(:,j,:) + lspv32(:,j - 1,:))
+       enddo
+
+       j = 1
+       lspv2(:,j,:) = 0.5 * (lspv32(:,j,:) + lspv32(:,nymsize,:))
+    endif
+    call transpose_y_to_x(lspv2,lspv21,ph2) !nxm ny nz
+
+    if ((nclx1.ne.0).and.(nclxn.ne.0)) then
+       do i = 2, nxmsize
+          rho1(i,:,:,1) = 0.5 * (lspv21(i - 1,:,:) + lspv21(i,:,:))
+       enddo
+
+       i = 1
+       if (nclx1.eq.1) then
+          rho1(i,:,:,1) = lspv21(i,:,:)
+       else
+          rho1(i,:,:,1) = 2.0 * lspv21(i,:,:) - rho1(i + 1,:,:,1)
+       endif
+
+       i = nxmsize + 1
+       if (nclxn.eq.1) then
+          rho1(i,:,:,1) = lspv21(i - 1,:,:)
+       else
+          rho1(i,:,:,1) = 2.0 * lspv21(i - 1,:,:) - rho1(i - 1,:,:,1)
+       endif
+    else
+       do i = 2, nxmsize
+          rho1(i,:,:,1) = 0.5 * (lspv21(i - 1,:,:) + lspv21(i,:,:))
+       enddo
+
+       i = 1
+       rho1(i,:,:,1) = 0.5 * (lspv21(i,:,:) + lspv21(nxmsize,:,:))
+    endif
+
+    !! Use levelset to set fluid properties (on pressure nodes)
+    do k = 1, nzmsize
+       do j = ph1%zst(2), ph1%zen(2)
+          do i = ph1%zst(1), ph1%zen(1)
+             if (lsp3(i, j, k).gt.alpha) then
+                prop3(i, j, k) = visc1
+             else if (lsp3(i, j, k).lt.-alpha) then
+                prop3(i, j, k) = visc2
+             else
+                hk = one / (one + exp(-two * k99 * lsp3(i, j, k)))
+                prop3(i, j, k) = visc2 + hk * (visc1 - visc2)
+             endif
+          enddo
+       enddo
+    enddo
+    
+    !! Interpolate fluid properties back to velocity mesh
+    if ((nclz1.ne.0).and.(nclzn.ne.0)) then
+       do k = 2, nzmsize
+          lspv3(:,:,k) = 0.5 * (prop3(:,:,k) + prop3(:,:,k - 1))
+       enddo
+
+       k = 1
+       if (nclz1.eq.1) then
+          !! Zero gradient
+          lspv3(:,:,k) = prop3(:,:,k)
+       else
+          lspv3(:,:,k) = 2.0 * prop3(:,:,k) - lspv3(:,:,k + 1)
+       endif
+
+       k = nzmsize + 1
+       if (nclzn.eq.1) then
+          !! Zero gradient
+          lspv3(:,:,k) = prop3(:,:,k - 1)
+       else
+          lspv3(:,:,k) = 2.0 * prop3(:,:,k - 1) - lspv3(:,:,k - 1)
+       endif
+    else
+       do k = 2, nzmsize
+          lspv3(:,:,k) = 0.5 * (prop3(:,:,k - 1) + prop3(:,:,k))
+       enddo
+
+       k = 1
+       lspv3(:,:,k) = 0.5 * (prop3(:,:,k) + prop3(:,:,nzmsize))
+    endif
+    call transpose_z_to_y(lspv3,lspv32,ph3)
+
+    if ((ncly1.ne.0).and.(nclyn.ne.0)) then
+       do j = 2, nymsize
+          lspv2(:,j,:) = 0.5 * (lspv32(:,j - 1,:) + lspv32(:,j,:))
+       enddo
+
+       j = 1
+       if (ncly1.eq.1) then
+          lspv2(:,j,:) = lspv32(:,j,:)
+       else
+          lspv2(:,j,:) = 2.0 * lspv32(:,j,:) - lspv32(:,j + 1,:)
+       endif
+
+       j = nymsize + 1
+       if (nclyn.eq.1) then
+          lspv2(:,j,:) = lspv32(:,j - 1,:)
+       else
+          lspv2(:,j,:) = 2.0 * lspv32(:,j - 1,:) - lspv2(:,j - 1,:)
+       endif
+    else
+       do j = 2, nymsize
+          lspv2(:,j,:) = 0.5 * (lspv32(:,j,:) + lspv32(:,j - 1,:))
+       enddo
+
+       j = 1
+       lspv2(:,j,:) = 0.5 * (lspv32(:,j,:) + lspv32(:,nymsize,:))
+    endif
+    call transpose_y_to_x(lspv2,lspv21,ph2) !nxm ny nz
+
+    if ((nclx1.ne.0).and.(nclxn.ne.0)) then
+       do i = 2, nxmsize
+          mu1(i,:,:) = 0.5 * (lspv21(i - 1,:,:) + lspv21(i,:,:))
+       enddo
+
+       i = 1
+       if (nclx1.eq.1) then
+          mu1(i,:,:) = lspv21(i,:,:)
+       else
+          mu1(i,:,:) = 2.0 * lspv21(i,:,:) - mu1(i + 1,:,:)
+       endif
+
+       i = nxmsize + 1
+       if (nclxn.eq.1) then
+          mu1(i,:,:) = lspv21(i - 1,:,:)
+       else
+          mu1(i,:,:) = 2.0 * lspv21(i - 1,:,:) - mu1(i - 1,:,:)
+       endif
+    else
+       do i = 2, nxmsize
+          mu1(i,:,:) = 0.5 * (lspv21(i - 1,:,:) + lspv21(i,:,:))
+       enddo
+
+       i = 1
+       mu1(i,:,:) = 0.5 * (lspv21(i,:,:) + lspv21(nxmsize,:,:))
     endif
 
   endsubroutine update_fluid_properties
@@ -541,11 +758,16 @@ contains
     use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
     use decomp_2d, only : alloc_x
 
+    use div, only : divergence
+    use navier, only : gradp
+
     use variables, only : derx, dery, derz
     use variables, only : sx, sy, sz
 
+    use var, only : ep1, divu3, drho1
+    
     use var, only : zero, half, one, two, three, pi
-    use var, only : stfx1 => ta1, stfy1 => tb1, stfz1 => tc1, ddelta1 => td1, curvature1 => te1
+    use var, only : stfx1 => ta1, stfy1 => tb1, stfz1 => tc1, curvature1 => te1
     use var, only : di1
     use var, only : ny, nz
 
@@ -570,6 +792,21 @@ contains
     use param, only : dens1, dens2
     use param, only : itime, ifirst
 
+    use var, only : lsp1 => pgy1, lspv21 => pp1
+    use var, only : lsp12 => uyp2, lsp2 => upi2, lspv32 => pp2, lspv2 => ppi2
+    use var, only : lsp23 => uzp3, lsp3 => qq3, curvaturep3 => dv3
+    use var, only : curvaturepi3 => ppi3
+    use var, only : curvaturepi32 => pp2, curvaturepi2 => ppi2
+    use var, only : curvaturepi21 => pp1
+
+    use var, only : dip3, cifip6z, cisip6z, ciwip6z, cifz6, cisz6, ciwz6
+    use var, only : dip2, cifip6y, cisip6y, ciwip6y, cify6, cisy6, ciwy6
+    use var, only : cifip6, cisip6, ciwip6, cifx6, cisx6, ciwx6
+
+    use var, only : nxmsize, nymsize, nzmsize
+    use var, only : ph1, ph2, ph3, ph4
+    use var, only : nclx1, ncly1, nclz1, nclxn, nclyn, nclzn
+
     use weno, only : weno5
     
     implicit none
@@ -589,6 +826,7 @@ contains
     real(mytype) :: sigma ! Surface tension coefficient
     real(mytype) :: rhomean
     real(mytype) :: x, y, z
+    real(mytype) :: ddelta
 
     alpha = interface_thickness * (dx * dy * dz)**(one / three)
     sigma = one / 121._mytype
@@ -599,129 +837,69 @@ contains
        call alloc_x(nx1); call alloc_x(ny1); call alloc_x(nz1)
     endif
 
-    !! Fist, compute the normals
-    call transpose_x_to_y(levelset1, ls2)
-    call transpose_y_to_z(ls2, ls3)
-    call derz (nz3,ls3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-    call transpose_z_to_y(nz3, nz2)
-    call dery (ny2,ls2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-    call transpose_y_to_x(ny2, ny1)
-    call transpose_y_to_x(nz2, nz1)
-    call derx (nx1,levelset1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    if (nclx1.ne.0) then
-       nx1(1, :, :) = nx1(2, :, :)
-       nx1(xsize(1), :, :) = nx1(xsize(1) - 1, :, :)
+    !! Get levelset to pressure mesh
+    if ((nclx1.ne.0).and.(nclxn.ne.0)) then
+       do i = 1, nxmsize
+          lsp1(i,:,:) = 0.5 * (levelset1(i + 1,:,:) + levelset1(i,:,:))
+       enddo
+    else
+       do i = 1, nxmsize - 1
+          lsp1(i,:,:) = 0.5 * (levelset1(i + 1,:,:)) + levelset1(i,:,:)
+       enddo
+       lsp1(nxmsize,:,:) = 0.5 * (levelset1(1,:,:) + levelset1(nxmsize,:,:))
+    endif
+    call transpose_x_to_y(lsp1,lsp12,ph4)
+
+    if ((ncly1.ne.0).and.(nclyn.ne.0)) then
+       do j = 1, nymsize
+          lsp2(:,j,:) = 0.5 * (lsp12(:,j+1,:) + lsp12(:,j,:))
+       enddo
+    else
+       do j = 1, nymsize - 1
+          lsp2(:,j,:) = 0.5 * (lsp12(:,j+1,:) + lsp12(:,j,:))
+       enddo
+       lsp2(:,nymsize,:) = 0.5 * (lsp12(:,1,:) + lsp12(:,nymsize,:))
+    endif
+    call transpose_y_to_z(lsp2,lsp23,ph3)
+
+    if ((nclz1.ne.0).and.(nclzn.ne.0)) then
+       do k = 1, nzmsize
+          lsp3(:,:,k) = 0.5 * (lsp23(:,:,k+1) + lsp23(:,:,k))
+       enddo
+    else
+       do k = 1, nzmsize - 1
+          lsp3(:,:,k) = 0.5 * (lsp23(:,:,k+1) + lsp23(:,:,k))
+       enddo
+       lsp3(:,:,nzmsize) = 0.5 * (lsp23(:,:,1) + lsp23(:,:,nzmsize))
     endif
 
-    if (ncly1.ne.0) then
-       if (xstart(2).eq.1) then
-          ny1(:, 1, :) = ny1(:, 2, :)
-       endif
-       if (xend(2).eq.ny) then
-          ny1(:, xsize(2), :) = ny1(:, xsize(2) - 1, :)
-       endif
-    endif
-
-    if (nclz1.ne.0) then
-       if (xstart(3).eq.1) then
-          nz1(:, :, 1) = nz1(:, :,2)
-       endif
-       if (xend(3).eq.nz) then
-          nz1(:, :, xsize(3)) = nz1(:, :, xsize(3) - 1)
-       endif
-    endif
-
+    !! Compute the normals
+    call gradp(nx1, ny1, nz1, lsp3)
     do k = 1, xsize(3)
-       z = real(k + xstart(3) - 2, mytype) * dz - half * zlz
        do j = 1, xsize(2)
-          y = real(j + xstart(2) - 2, mytype) * dy - half * yly
           do i = 1, xsize(1)
-             x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
-
-             !! Computed normal
-             normmag = sqrt(nx1(i, j, k)**2 + ny1(i, j, k)**2 + nz1(i, j, k)**2)
-             if (normmag.gt.(zero)) then
-                nx1(i, j, k) = nx1(i, j, k) / normmag
-                ny1(i, j, k) = ny1(i, j, k) / normmag
-                nz1(i, j, k) = nz1(i, j, k) / normmag
+             normmag = sqrt(nx1(i,j,k)**2 + ny1(i,j,k)**2 + nz1(i,j,k)**2)
+             if (normmag.gt.zero) then
+                nx1(i,j,k) = nx1(i,j,k) / normmag
+                ny1(i,j,k) = ny1(i,j,k) / normmag
+                nz1(i,j,k) = nz1(i,j,k) / normmag
              else
-                nx1(i, j, k) = zero
-                ny1(i, j, k) = zero
-                nz1(i, j, k) = zero
+                nx1(i,j,k) = zero
+                ny1(i,j,k) = zero
+                nz1(i,j,k) = zero
              endif
-
-             ! ! !! Exact normal (of a sphere)
-             ! ! normmag = sqrt(x**2 + y**2 + z**2)
-             ! ! if (normmag.gt.zero) then
-             ! !    nx1(i, j, k) = x / normmag
-             ! !    ny1(i, j, k) = y / normmag
-             ! !    nz1(i, j, k) = z / normmag
-             ! ! else
-             ! !    nx1(i, j, k) = zero
-             ! !    ny1(i, j, k) = zero
-             ! !    nz1(i, j, k) = zero
-             ! ! endif
-
-             ! !! Exact normal (of a cylinder)
-             ! normmag = sqrt(x**2 + y**2)
-             ! if (normmag.gt.zero) then
-             !    nx1(i, j, k) = x / normmag
-             !    ny1(i, j, k) = y / normmag
-             !    nz1(i, j, k) = zero
-             ! else
-             !    nx1(i, j, k) = zero
-             !    ny1(i, j, k) = zero
-             !    nz1(i, j, k) = zero
-             ! endif
-
-             ! ! !! Exact normal of a free surface
-             ! ! nx1(i, j, k) = zero
-             ! ! ny1(i, j, k) = -one
-             ! ! nz1(i, j, k) = zero
           enddo
        enddo
     enddo
-
-    !! Compute curvature = div(n)
-    call transpose_x_to_y(ny1, ny2)
-    call transpose_x_to_y(nz1, nz2)
-    call transpose_y_to_z(nz2, nz3)
-    call derz (curvature3,nz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-    call transpose_z_to_y(curvature3, nz2)
-    call dery (curvature2,ny2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-    curvature2 = curvature2 + nz2
-    call transpose_y_to_x(curvature2, curvature1)
-    call derx (stfx1,nx1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-    curvature1 = curvature1 + stfx1
-
-    ! !! Exact curvature of a cylinder
-    ! do k = 1, xsize(3)
-    !    z = real(k + xstart(3) - 2, mytype) * dz - half * zlz
-    !    do j = 1, xsize(2)
-    !       y = real(j + xstart(2) - 2, mytype) * dy - half * yly
-    !       do i = 1, xsize(1)
-    !          x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
-    !          if ((x**2 + y**2).gt.zero) then
-    !             curvature1(i,j,k) = one / sqrt(x**2 + y**2)
-    !          else
-    !             curvature1(i,j,k) = zero
-    !          endif
-    !       enddo
-    !    enddo
-    ! enddo
     
-    !! Compute forcing
-    stfx1(:,:,:) = curvature1(:,:,:) * nx1(:,:,:)
-    stfy1(:,:,:) = curvature1(:,:,:) * ny1(:,:,:)
-    stfz1(:,:,:) = curvature1(:,:,:) * nz1(:,:,:)
+    !! Compute curvature = div(n)
+    nlock = -1
+    CALL divergence(curvaturep3,rho1,nx1,ny1,nz1,ep1,drho1,divu3,nlock)
 
-    do k = 1, xsize(3)
-       z = real(k + xstart(3) - 2, mytype) * dz - half * zlz
-       do j = 1, xsize(2)
-          y = real(j + xstart(2) - 2, mytype) * dy - half * yly
-          do i = 1, xsize(1)
-             x = real(i + xstart(1) - 2, mytype) * dx - half * xlx
-
+    !! Evaluate Dirac delta on pressure mesh and apply to curvature
+    do k = 1, size(lsp3, 3)
+       do j = 1, size(lsp3, 2)
+          do i = 1, size(lsp3, 1)
              ! !! COS Dirac delta
              ! if (abs(levelset1(i, j, k)).lt.alpha) then
              !    ddelta1(i, j, k) = half * (one + cos(pi * levelset1(i, j, k) / alpha)) / alpha
@@ -730,18 +908,161 @@ contains
              ! endif
 
              !! GAUSS Dirac delta
-             ddelta1(i, j, k) = exp(-((levelset1(i, j, k) / alpha)**2)) / (alpha * sqrt(pi))
+             ddelta = exp(-((lsp3(i, j, k) / alpha)**2)) / (alpha * sqrt(pi))
+             
+             curvaturep3(i, j, k) = ddelta * curvaturep3(i, j, k)
           enddo
        enddo
     enddo
-    stfx1(:,:,:) = sigma * ddelta1(:,:,:) * stfx1(:,:,:)
-    stfy1(:,:,:) = sigma * ddelta1(:,:,:) * stfy1(:,:,:)
-    stfz1(:,:,:) = sigma * ddelta1(:,:,:) * stfz1(:,:,:)
+
+    !! Get curvature to velocity mesh
+    call interypv(curvaturepi2,curvaturepi32,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+         (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+    call transpose_y_to_x(curvaturepi2,curvaturepi21,ph2) !nxm ny nz
+    call interxpv(curvature1,curvaturepi21,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+         nxmsize,xsize(1),xsize(2),xsize(3),1)
+    do k = 2, nzmsize
+       do j = 1, size(curvaturep3, 2)
+          do i = 1, size(curvaturep3, 1)
+             if (curvaturep3(i,j,k).eq.zero) then
+                curvaturepi3(i,j,k) = curvaturep3(i,j,k - 1)
+             elseif (curvaturep3(i,j,k-1).eq.zero) then
+                curvaturepi3(i,j,k) = curvaturep3(i,j,k)
+             else
+                curvaturepi3(i,j,k) = 0.5 * (curvaturep3(i,j,k) + curvaturep3(i,j,k - 1))
+             endif
+          enddo
+       enddo
+    enddo
+    if ((nclz1.ne.0).and.(nclzn.ne.0)) then
+       k = 1
+       if (nclz1.eq.1) then
+          !! Zero gradient
+          curvaturepi3(:,:,k) = curvaturep3(:,:,k)
+       else
+          curvaturepi3(:,:,k) = 2.0 * curvaturep3(:,:,k) - curvaturepi3(:,:,k + 1)
+       endif
+
+       k = nzmsize + 1
+       if (nclzn.eq.1) then
+          !! Zero gradient
+          curvaturepi3(:,:,k) = curvaturep3(:,:,k - 1)
+       else
+          curvaturepi3(:,:,k) = 2.0 * curvaturep3(:,:,k - 1) - curvaturepi3(:,:,k - 1)
+       endif
+    else
+       k = 1
+       do j = 1, size(curvaturep3, 2)
+          do i = 1, size(curvaturep3, 1)
+             if (curvaturep3(i,j,k).eq.zero) then
+                curvaturepi3(i,j,k) = curvaturep3(i,j,nzmsize)
+             elseif (curvaturep3(i,j,nzmsize).eq.zero) then
+                curvaturepi3(i,j,k) = curvaturep3(i,j,k)
+             else
+                curvaturepi3(i,j,k) = 0.5 * (curvaturep3(i,j,k) + curvaturep3(i,j,nzmsize))
+             endif
+          enddo
+       enddo
+    endif
+    call transpose_z_to_y(curvaturepi3,curvaturepi32,ph3)
+
+    do k = 1, size(curvaturepi32, 3)
+       do j = 2, nymsize
+          do i = 1, size(curvaturepi32, 1)
+             if (curvaturepi32(i,j,k).eq.zero) then
+                curvaturepi2(i,j,k) = curvaturepi32(i,j-1,k)
+             elseif (curvaturepi32(i,j-1,k).eq.zero) then
+                curvaturepi2(i,j,k) = curvaturepi32(i,j,k)
+             else
+                curvaturepi2(:,j,:) = 0.5 * (curvaturepi32(:,j - 1,:) + curvaturepi32(:,j,:))
+             endif
+          enddo
+       enddo
+    enddo
+    
+    if ((ncly1.ne.0).and.(nclyn.ne.0)) then
+       j = 1
+       if (ncly1.eq.1) then
+          curvaturepi2(:,j,:) = curvaturepi32(:,j,:)
+       else
+          curvaturepi2(:,j,:) = 2.0 * curvaturepi32(:,j,:) - curvaturepi32(:,j + 1,:)
+       endif
+
+       j = nymsize + 1
+       if (nclyn.eq.1) then
+          curvaturepi2(:,j,:) = curvaturepi32(:,j - 1,:)
+       else
+          curvaturepi2(:,j,:) = 2.0 * curvaturepi32(:,j - 1,:) - curvaturepi2(:,j - 1,:)
+       endif
+    else
+       j = 1
+       do k = 1, size(curvaturepi32, 3)
+          do i = 1, size(curvaturepi32, 1)
+             if (curvaturepi32(i,j,k).eq.zero) then
+                curvaturepi2(i,j,k) = curvaturepi32(i,nymsize,k)
+             elseif (curvaturepi32(i,nymsize,k).eq.zero) then
+                curvaturepi2(i,j,k) = curvaturepi32(i,j,k)
+             else
+                curvaturepi2(:,j,:) = 0.5 * (curvaturepi32(:,nymsize,:) + curvaturepi32(:,j,:))
+             endif
+          enddo
+       enddo
+    endif
+    call transpose_y_to_x(curvaturepi2,curvaturepi21,ph2) !nxm ny nz
+
+    do k = 1, size(curvaturepi21, 3)
+       do j = 1, size(curvaturepi21, 2)
+          do i = 2, nxmsize
+             if (curvaturepi21(i,j,k).eq.zero) then
+                curvature1(i,j,k) = curvaturepi21(i-1,j,k)
+             elseif (curvaturepi21(i-1,j,k).eq.zero) then
+                curvature1(i,j,k) = curvaturepi21(i,j,k)
+             else
+                curvature1(i,:,:) = 0.5 * (curvaturepi21(i - 1,:,:) + curvaturepi21(i,:,:))
+             endif
+          enddo
+       enddo
+    enddo
+    if ((nclx1.ne.0).and.(nclxn.ne.0)) then
+       i = 1
+       if (nclx1.eq.1) then
+          curvature1(i,:,:) = curvaturepi21(i,:,:)
+       else
+          curvature1(i,:,:) = 2.0 * curvaturepi21(i,:,:) - curvature1(i + 1,:,:)
+       endif
+
+       i = nxmsize + 1
+       if (nclxn.eq.1) then
+          curvature1(i,:,:) = curvaturepi21(i - 1,:,:)
+       else
+          curvature1(i,:,:) = 2.0 * curvaturepi21(i - 1,:,:) - curvature1(i - 1,:,:)
+       endif
+    else
+       i = 1
+       do k = 1, size(curvaturepi21, 3)
+          do j = 1, size(curvaturepi21, 2)
+             do i = 2, nxmsize
+                if (curvaturepi21(i,j,k).eq.zero) then
+                   curvature1(i,j,k) = curvaturepi21(nxmsize,j,k)
+                elseif (curvaturepi21(nxmsize,j,k).eq.zero) then
+                   curvature1(i,j,k) = curvaturepi21(i,j,k)
+                else
+                   curvature1(i,:,:) = 0.5 * (curvaturepi21(nxmsize,:,:) + curvaturepi21(i,:,:))
+                endif
+             enddo
+          enddo
+       enddo
+    endif
+
+    !! Evaluate forcing on velocity mesh
+    stfx1(:,:,:) = sigma * curvature1(:,:,:) * nx1(:,:,:)
+    stfy1(:,:,:) = sigma * curvature1(:,:,:) * ny1(:,:,:)
+    stfz1(:,:,:) = sigma * curvature1(:,:,:) * nz1(:,:,:)
 
     !! Add contribution to forcing terms
-    sx1(:,:,:) = sx1(:,:,:) + stfx1(:,:,:) * rho1(:,:,:,1) / rhomean
-    sy1(:,:,:) = sy1(:,:,:) + stfy1(:,:,:) * rho1(:,:,:,1) / rhomean
-    sz1(:,:,:) = sz1(:,:,:) + stfz1(:,:,:) * rho1(:,:,:,1) / rhomean
+    sx1(:,:,:) = sx1(:,:,:) - stfx1(:,:,:) * rho1(:,:,:,1) / rhomean
+    sy1(:,:,:) = sy1(:,:,:) - stfy1(:,:,:) * rho1(:,:,:,1) / rhomean
+    sz1(:,:,:) = sz1(:,:,:) - stfz1(:,:,:) * rho1(:,:,:,1) / rhomean
 
   end subroutine surface_tension_force
 

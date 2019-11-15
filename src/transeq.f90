@@ -55,6 +55,8 @@ CONTAINS
 
   subroutine momentum_rhs_eq(dux1,duy1,duz1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
 
+    USE MPI
+    
     USE param
     USE variables
     USE decomp_2d
@@ -81,259 +83,51 @@ CONTAINS
     !! OUTPUTS
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1
 
-
     integer :: i,j,k,is
     real(mytype) :: rhocons
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: sx1, sy1, sz1
 
-    if (ifreesurface) then
-       rhocons = zero
-    else
-       rhocons = one
-    endif
+    integer :: ierr
+    real(mytype) :: wdom, wglob
 
-    !SKEW SYMMETRIC FORM
-    !WORK X-PENCILS
-    ta1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * ux1(:,:,:)
-    tb1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * uy1(:,:,:)
-    tc1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * uz1(:,:,:)
-
-    call derx (td1,ta1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    call derx (te1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-    call derx (tf1,tc1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-    call derx (ta1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
-    call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-    call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-
-    ta1(:,:,:) = td1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * ta1(:,:,:)
-    tb1(:,:,:) = te1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * tb1(:,:,:)
-    tc1(:,:,:) = tf1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * tc1(:,:,:)
-
-    if (ilmn) then
-       !! Quasi-skew symmetric terms
-       call derx (td1,rho1(:,:,:,1),di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
-       ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
-       tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
-       tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
-    endif
-
+    !! Ensure variables are up to date before computing advection terms
     call transpose_x_to_y(ux1,ux2)
     call transpose_x_to_y(uy1,uy2)
     call transpose_x_to_y(uz1,uz2)
-    call transpose_x_to_y(ta1,ta2)
-    call transpose_x_to_y(tb1,tb2)
-    call transpose_x_to_y(tc1,tc2)
-
-    if (ilmn.or.ifreesurface) then
-       call transpose_x_to_y(rho1(:,:,:,1),rho2)
-    else
-       rho2(:,:,:) = one
-    endif
-
-    !WORK Y-PENCILS
-    td2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * ux2(:,:,:) * uy2(:,:,:)
-    te2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * uy2(:,:,:)
-    tf2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * uz2(:,:,:) * uy2(:,:,:)
-
-    call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-    call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-    call dery (ti2,tf2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-    call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-    call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-    call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-
-    ta2(:,:,:) = ta2(:,:,:) + (tg2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * td2(:,:,:))
-    tb2(:,:,:) = tb2(:,:,:) + (th2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * te2(:,:,:))
-    tc2(:,:,:) = tc2(:,:,:) + (ti2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * tf2(:,:,:))
-
-    if (ilmn) then
-       !! Quasi-skew symmetric terms
-       call dery (te2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-       ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
-       tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
-       tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
-    endif
-
     call transpose_y_to_z(ux2,ux3)
     call transpose_y_to_z(uy2,uy3)
     call transpose_y_to_z(uz2,uz3)
-    call transpose_y_to_z(ta2,ta3)
-    call transpose_y_to_z(tb2,tb3)
-    call transpose_y_to_z(tc2,tc3)
-
     if (ilmn.or.ifreesurface) then
+       call transpose_x_to_y(rho1(:,:,:,1),rho2)
        call transpose_y_to_z(rho2,rho3)
     else
+       rho2(:,:,:) = one
        rho3(:,:,:) = one
     endif
 
-    !WORK Z-PENCILS
-    td3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * ux3(:,:,:) * uz3(:,:,:)
-    te3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * uy3(:,:,:) * uz3(:,:,:)
-    tf3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * uz3(:,:,:)
-
-    call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-    call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-    call derz (ti3,tf3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-    call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-    call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-    call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
-
-    ta3(:,:,:) = ta3(:,:,:) + (tg3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * td3(:,:,:))
-    tb3(:,:,:) = tb3(:,:,:) + (th3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * te3(:,:,:))
-    tc3(:,:,:) = tc3(:,:,:) + (ti3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * tf3(:,:,:))
-
-    if (ilmn) then
-       !! Quasi-skew symmetric terms
-       call derz (tf3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
-       ta3(:,:,:) = ta3(:,:,:) + ux3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
-       tb3(:,:,:) = tb3(:,:,:) + uy3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
-       tc3(:,:,:) = tc3(:,:,:) + uz3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
-
-       !! Add the additional divu terms
-       ta3(:,:,:) = ta3(:,:,:) + rho3(:,:,:) * ux3(:,:,:) * divu3(:,:,:)
-       tb3(:,:,:) = tb3(:,:,:) + rho3(:,:,:) * uy3(:,:,:) * divu3(:,:,:)
-       tc3(:,:,:) = tc3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * divu3(:,:,:)
-    endif
-
-    !! Skew symmetric - need to multiply by half
-    ta3(:,:,:) = half * ta3(:,:,:)
-    tb3(:,:,:) = half * tb3(:,:,:)
-    tc3(:,:,:) = half * tc3(:,:,:)
-
-    if (ifreesurface) then
-       ta3(:,:,:) = rho3(:,:,:) * ta3(:,:,:)
-       tb3(:,:,:) = rho3(:,:,:) * tb3(:,:,:)
-       tc3(:,:,:) = rho3(:,:,:) * tc3(:,:,:)
-    endif
-
+    !! Compute advection
+    call momentum_adv(ta3, tb3, tc3)
+    
     !ALL THE CONVECTIVE TERMS ARE IN TA3, TB3 and TC3
     td3 = ta3
     te3 = tb3
     tf3 = tc3
-
-    !DIFFUSIVE TERMS IN Z
-    call derzz (ta3,ux3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
-    call derzz (tb3,uy3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
-    call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
-
-    !WORK Y-PENCILS
-    call transpose_z_to_y(ta3,ta2)
-    call transpose_z_to_y(tb3,tb2)
-    call transpose_z_to_y(tc3,tc2)
     call transpose_z_to_y(td3,td2)
     call transpose_z_to_y(te3,te2)
     call transpose_z_to_y(tf3,tf2)
+    call transpose_y_to_x(td2,tg1)
+    call transpose_y_to_x(te2,th1)
+    call transpose_y_to_x(tf2,ti1) !conv
 
-    tg2 = td2
-    th2 = te2
-    ti2 = tf2
-
-    !DIFFUSIVE TERMS IN Y
-    if (itimescheme.ne.7) then
-       !-->for ux
-       call deryy (td2,ux2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
-       if (istret.ne.0) then
-          call dery (te2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-          do k = 1,ysize(3)
-             do j = 1,ysize(2)
-                do i = 1,ysize(1)
-                   td2(i,j,k) = td2(i,j,k)*pp2y(j)-pp4y(j)*te2(i,j,k)
-                enddo
-             enddo
-          enddo
-       endif
-
-       !-->for uy
-       call deryy (te2,uy2,di2,sy,sfy,ssy,swy,ysize(1),ysize(2),ysize(3),0)
-       if (istret.ne.0) then
-          call dery (tf2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-          do k = 1,ysize(3)
-             do j = 1,ysize(2)
-                do i = 1,ysize(1)
-                   te2(i,j,k) = te2(i,j,k)*pp2y(j)-pp4y(j)*tf2(i,j,k)
-                enddo
-             enddo
-          enddo
-       endif
-
-       !-->for uz
-       call deryy (tf2,uz2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
-       if (istret.ne.0) then
-          call dery (tj2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-          do k = 1,ysize(3)
-             do j = 1,ysize(2)
-                do i = 1,ysize(1)
-                   tf2(i,j,k) = tf2(i,j,k)*pp2y(j)-pp4y(j)*tj2(i,j,k)
-                enddo
-             enddo
-          enddo
-       endif
-    else !Semi-implicit
-       if (istret.ne.0) then
-
-          !-->for ux
-          call dery (te2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-          do k=1,ysize(3)
-             do j=1,ysize(2)
-                do i=1,ysize(1)
-                   td2(i,j,k)=-pp4y(j)*te2(i,j,k)
-                enddo
-             enddo
-          enddo
-          !-->for uy
-          call dery (tf2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
-          do k=1,ysize(3)
-             do j=1,ysize(2)
-                do i=1,ysize(1)
-                   te2(i,j,k)=-pp4y(j)*tf2(i,j,k)
-                enddo
-             enddo
-          enddo
-          !-->for uz
-          call dery (tj2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
-          do k=1,ysize(3)
-             do j=1,ysize(2)
-                do i=1,ysize(1)
-                   tf2(i,j,k)=-pp4y(j)*tj2(i,j,k)
-                enddo
-             enddo
-          enddo
-
-       endif
-    endif
-
-    ta2 = ta2 + td2
-    tb2 = tb2 + te2
-    tc2 = tc2 + tf2
-
-    !WORK X-PENCILS
-    call transpose_y_to_x(ta2,ta1)
-    call transpose_y_to_x(tb2,tb1)
-    call transpose_y_to_x(tc2,tc1) !diff
-    call transpose_y_to_x(tg2,td1)
-    call transpose_y_to_x(th2,te1)
-    call transpose_y_to_x(ti2,tf1) !conv
-
-    tg1 = td1
-    th1 = te1
-    ti1 = tf1
-
-    !DIFFUSIVE TERMS IN X
-    call derxx (td1,ux1,di1,sx,sfx ,ssx ,swx ,xsize(1),xsize(2),xsize(3),0)
-    call derxx (te1,uy1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
-    call derxx (tf1,uz1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
-
-    ta1 = ta1 + td1
-    tb1 = tb1 + te1
-    tc1 = tc1 + tf1
+    !! Compute viscous stress
+    call momentum_visc(ta1, tb1, tc1)
 
     !FINAL SUM: DIFF TERMS + CONV TERMS
-    dux1(:,:,:,1) = mu1(:,:,:) * xnu*ta1(:,:,:) - tg1(:,:,:)
-    duy1(:,:,:,1) = mu1(:,:,:) * xnu*tb1(:,:,:) - th1(:,:,:)
-    duz1(:,:,:,1) = mu1(:,:,:) * xnu*tc1(:,:,:) - ti1(:,:,:)
+    dux1(:,:,:,1) = ta1(:,:,:) - tg1(:,:,:)
+    duy1(:,:,:,1) = tb1(:,:,:) - th1(:,:,:)
+    duz1(:,:,:,1) = tc1(:,:,:) - ti1(:,:,:)
 
-    if (ilmn.or.ifreesurface) then
+    if (ilmn) then
        call momentum_full_viscstress_tensor(dux1(:,:,:,1), duy1(:,:,:,1), duz1(:,:,:,1), divu3, mu1)
     endif
 
@@ -356,7 +150,10 @@ CONTAINS
 
     !! Gravity
     if ((Fr**2).gt.zero) then
-       call momentum_gravity(sx1, sy1, sz1, rho1(:,:,:,1) - one, one / Fr**2)
+       wdom = sum(rho1(:,:,:,1))
+       call MPI_ALLREDUCE(wdom,wglob,1,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
+       wglob = wglob / nx / ny / nz
+       call momentum_gravity(sx1, sy1, sz1, rho1(:,:,:,1) - wglob, one / Fr**2)
     endif
     do is = 1, numscalar
        if (is.ne.ilevelset) then
@@ -372,9 +169,9 @@ CONTAINS
     endif
 
     ! call source_smoothing(sx1, sy1, sz1, rho1)
-    if (solveq.and.(itime.eq.1)) then
-       call calcq(sx1, sy1, sz1, rho1) ! Computes a pseudo pressure field to balance source terms
-    endif
+    ! if (solveq) then
+    !    call calcq(sx1, sy1, sz1, rho1) ! Computes a pseudo pressure field to balance source terms
+    ! endif
 
     dux1(:,:,:,1) = dux1(:,:,:,1) + sx1(:,:,:)
     duy1(:,:,:,1) = duy1(:,:,:,1) + sy1(:,:,:)
@@ -395,42 +192,482 @@ CONTAINS
   end subroutine momentum_rhs_eq
   !************************************************************
 
+  subroutine momentum_adv(advx3, advy3, advz3)
+
+    use decomp_2d, only : mytype
+    use decomp_2d, only : xsize, ysize, zsize
+    use decomp_2d, only : transpose_x_to_y, transpose_y_to_z
+
+    use variables, only : derx, dery, derz
+
+    use param, only : ilmn, ifreesurface, ifirstder
+
+    use var, only : zero, half, one
+
+    use var, only : ux1, uy1, uz1, rho1, ta1, tb1, tc1, td1, te1, tf1
+    use var, only : ux2, uy2, uz2, rho2, ta2, tb2, tc2, td2, te2, tf2, tg2, th2, ti2
+    use var, only : ux3, uy3, uz3, rho3, divu3, td3, te3, tf3, tg3, th3, ti3
+
+    use var, only : di1, sx, ffxp, fsxp, fwxp, ffx, fsx, fwx
+    use var, only : di2, sy, ffy, fsy, fwy, ppy, ffyp, fsyp, fwyp
+    use var, only : di3, sz, ffzp, fszp, fwzp, ffz, fsz, fwz
+    
+    implicit none
+
+    real(mytype), dimension(zsize(1), zsize(2), zsize(3)), intent(out) :: advx3, advy3, advz3
+
+    real (mytype) :: rhocons
+
+    logical :: second_order
+
+    if (ifreesurface) then
+       rhocons = zero
+    else
+       rhocons = one
+    endif
+
+    if (ifirstder.eq.1) then
+       second_order = .false.
+    else
+       second_order = .true.
+    endif
+
+    !SKEW SYMMETRIC FORM
+    !WORK X-PENCILS
+    ta1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * ux1(:,:,:)
+    tb1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * uy1(:,:,:)
+    tc1(:,:,:) = ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * uz1(:,:,:)
+
+    call derx (td1,ta1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call derx (te1,tb1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    call derx (tf1,tc1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    if (.not.second_order) then
+       call derx (ta1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+       call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+       call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    else
+       ta1(:,:,:) = zero; tb1(:,:,:) = zero; tc1(:,:,:) = zero
+    endif
+
+    ta1(:,:,:) = td1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * ta1(:,:,:)
+    tb1(:,:,:) = te1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * tb1(:,:,:)
+    tc1(:,:,:) = tf1(:,:,:) + ((one - rhocons) + rhocons * rho1(:,:,:,1)) * ux1(:,:,:) * tc1(:,:,:)
+
+    if (ilmn) then
+       !! Quasi-skew symmetric terms
+       call derx (td1,rho1(:,:,:,1),di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+       ta1(:,:,:) = ta1(:,:,:) + ux1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
+       tb1(:,:,:) = tb1(:,:,:) + uy1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
+       tc1(:,:,:) = tc1(:,:,:) + uz1(:,:,:) * ux1(:,:,:) * td1(:,:,:)
+    endif
+
+    call transpose_x_to_y(ta1,ta2)
+    call transpose_x_to_y(tb1,tb2)
+    call transpose_x_to_y(tc1,tc2)
+
+    !WORK Y-PENCILS
+    td2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * ux2(:,:,:) * uy2(:,:,:)
+    te2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * uy2(:,:,:)
+    tf2(:,:,:) = ((one - rhocons) + rhocons * rho2(:,:,:)) * uz2(:,:,:) * uy2(:,:,:)
+
+    call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    call dery (ti2,tf2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    if (.not.second_order) then
+       call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+       call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+       call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    else
+       td2(:,:,:) = zero; te2(:,:,:) = zero; tf2(:,:,:) = zero
+    endif
+
+    ta2(:,:,:) = ta2(:,:,:) + (tg2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * td2(:,:,:))
+    tb2(:,:,:) = tb2(:,:,:) + (th2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * te2(:,:,:))
+    tc2(:,:,:) = tc2(:,:,:) + (ti2(:,:,:) + ((one - rhocons) + rhocons * rho2(:,:,:)) * uy2(:,:,:) * tf2(:,:,:))
+
+    if (ilmn) then
+       !! Quasi-skew symmetric terms
+       call dery (te2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+       ta2(:,:,:) = ta2(:,:,:) + ux2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
+       tb2(:,:,:) = tb2(:,:,:) + uy2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
+       tc2(:,:,:) = tc2(:,:,:) + uz2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
+    endif
+
+    call transpose_y_to_z(ta2,advx3)
+    call transpose_y_to_z(tb2,advy3)
+    call transpose_y_to_z(tc2,advz3)
+
+    !WORK Z-PENCILS
+    td3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * ux3(:,:,:) * uz3(:,:,:)
+    te3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * uy3(:,:,:) * uz3(:,:,:)
+    tf3(:,:,:) = ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * uz3(:,:,:)
+
+    call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+    call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+    call derz (ti3,tf3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    if (.not.second_order) then
+       call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+       call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+       call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+    else
+       td3(:,:,:) = zero; te3(:,:,:) = zero; tf3(:,:,:) = zero
+    endif
+
+    advx3(:,:,:) = advx3(:,:,:) + (tg3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * td3(:,:,:))
+    advy3(:,:,:) = advy3(:,:,:) + (th3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * te3(:,:,:))
+    advz3(:,:,:) = advz3(:,:,:) + (ti3(:,:,:) + ((one - rhocons) + rhocons * rho3(:,:,:)) * uz3(:,:,:) * tf3(:,:,:))
+
+    if (ilmn) then
+       !! Quasi-skew symmetric terms
+       call derz (tf3,rho3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+       advx3(:,:,:) = advx3(:,:,:) + ux3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
+       advy3(:,:,:) = advy3(:,:,:) + uy3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
+       advz3(:,:,:) = advz3(:,:,:) + uz3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
+
+       !! Add the additional divu terms
+       advx3(:,:,:) = advx3(:,:,:) + rho3(:,:,:) * ux3(:,:,:) * divu3(:,:,:)
+       advy3(:,:,:) = advy3(:,:,:) + rho3(:,:,:) * uy3(:,:,:) * divu3(:,:,:)
+       advz3(:,:,:) = advz3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * divu3(:,:,:)
+    endif
+
+    if (.not.second_order) then
+       !! Skew symmetric - need to multiply by half
+       advx3(:,:,:) = half * advx3(:,:,:)
+       advy3(:,:,:) = half * advy3(:,:,:)
+       advz3(:,:,:) = half * advz3(:,:,:)
+    endif
+
+    if (ifreesurface) then
+       advx3(:,:,:) = rho3(:,:,:) * advx3(:,:,:)
+       advy3(:,:,:) = rho3(:,:,:) * advy3(:,:,:)
+       advz3(:,:,:) = rho3(:,:,:) * advz3(:,:,:)
+    endif
+    
+  endsubroutine momentum_adv
+
+  subroutine momentum_visc (vstrx1, vstry1, vstrz1)
+
+    use decomp_2d, only : mytype
+    use decomp_2d, only : xsize, ysize, zsize
+
+    use decomp_2d, only : transpose_z_to_y, transpose_y_to_x, transpose_x_to_y, transpose_y_to_z
+
+    use var, only : two
+    use variables, only : derzz, deryy, dery, derxx, derx, derz
+
+    use var, only : ta3, tb3, tc3, td3, te3, tf3, tg3, th3
+    use var, only : ta2, tb2, tc2, td2, te2, tf2, pp4y, pp2y, tj2, tg2, th2, ti2
+    use var, only : td1, te1, tf1
+
+    use var, only : di3, sz, sfzp, sszp, swzp, sfz, ssz, swz
+    use var, only : di2, sy, sfyp, ssyp, swyp, ffyp, fsyp, fwyp, ppy, sfy, ssy, swy, ffy, fsy, fwy
+    use var, only : di1, sx, sfxp, ssxp, swxp, sfx, ssx, swx
+
+    use var, only : ffxp, fsxp, fwxp, ffx, fsx, fwx
+    use var, only : ffz, fsz, fwz, ffzp, fszp, fwzp
+
+    use param, only : itimescheme, istret, ifreesurface
+
+    use var, only : xnu
+
+    use var, only : ux3, uy3, uz3
+    use var, only : ux2, uy2, uz2
+    use var, only : ux1, uy1, uz1, mu1
+
+    implicit none
+
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(out) :: vstrx1, vstry1, vstrz1
+
+    integer :: i, j, k
+
+    if (.not.ifreesurface) then
+       !DIFFUSIVE TERMS IN Z
+       call derzz (ta3,ux3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+       call derzz (tb3,uy3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
+       call derzz (tc3,uz3,di3,sz,sfz ,ssz ,swz ,zsize(1),zsize(2),zsize(3),0)
+
+       !WORK Y-PENCILS
+       call transpose_z_to_y(ta3,ta2)
+       call transpose_z_to_y(tb3,tb2)
+       call transpose_z_to_y(tc3,tc2)
+
+       !DIFFUSIVE TERMS IN Y
+       if (itimescheme.ne.7) then
+          !-->for ux
+          call deryy (td2,ux2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+          if (istret.ne.0) then
+             call dery (te2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+             do k = 1,ysize(3)
+                do j = 1,ysize(2)
+                   do i = 1,ysize(1)
+                      td2(i,j,k) = td2(i,j,k)*pp2y(j)-pp4y(j)*te2(i,j,k)
+                   enddo
+                enddo
+             enddo
+          endif
+
+          !-->for uy
+          call deryy (te2,uy2,di2,sy,sfy,ssy,swy,ysize(1),ysize(2),ysize(3),0)
+          if (istret.ne.0) then
+             call dery (tf2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+             do k = 1,ysize(3)
+                do j = 1,ysize(2)
+                   do i = 1,ysize(1)
+                      te2(i,j,k) = te2(i,j,k)*pp2y(j)-pp4y(j)*tf2(i,j,k)
+                   enddo
+                enddo
+             enddo
+          endif
+
+          !-->for uz
+          call deryy (tf2,uz2,di2,sy,sfyp,ssyp,swyp,ysize(1),ysize(2),ysize(3),1)
+          if (istret.ne.0) then
+             call dery (tj2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+             do k = 1,ysize(3)
+                do j = 1,ysize(2)
+                   do i = 1,ysize(1)
+                      tf2(i,j,k) = tf2(i,j,k)*pp2y(j)-pp4y(j)*tj2(i,j,k)
+                   enddo
+                enddo
+             enddo
+          endif
+       else !Semi-implicit
+          if (istret.ne.0) then
+
+             !-->for ux
+             call dery (te2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+             do k=1,ysize(3)
+                do j=1,ysize(2)
+                   do i=1,ysize(1)
+                      td2(i,j,k)=-pp4y(j)*te2(i,j,k)
+                   enddo
+                enddo
+             enddo
+             !-->for uy
+             call dery (tf2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+             do k=1,ysize(3)
+                do j=1,ysize(2)
+                   do i=1,ysize(1)
+                      te2(i,j,k)=-pp4y(j)*tf2(i,j,k)
+                   enddo
+                enddo
+             enddo
+             !-->for uz
+             call dery (tj2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+             do k=1,ysize(3)
+                do j=1,ysize(2)
+                   do i=1,ysize(1)
+                      tf2(i,j,k)=-pp4y(j)*tj2(i,j,k)
+                   enddo
+                enddo
+             enddo
+
+          endif
+       endif
+
+       ta2 = ta2 + td2
+       tb2 = tb2 + te2
+       tc2 = tc2 + tf2
+
+       !WORK X-PENCILS
+       call transpose_y_to_x(ta2,vstrx1)
+       call transpose_y_to_x(tb2,vstry1)
+       call transpose_y_to_x(tc2,vstrz1) !diff
+
+       !DIFFUSIVE TERMS IN X
+       call derxx (td1,ux1,di1,sx,sfx ,ssx ,swx ,xsize(1),xsize(2),xsize(3),0)
+       call derxx (te1,uy1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+       call derxx (tf1,uz1,di1,sx,sfxp,ssxp,swxp,xsize(1),xsize(2),xsize(3),1)
+
+       vstrx1(:,:,:) = vstrx1(:,:,:) + td1(:,:,:)
+       vstry1(:,:,:) = vstry1(:,:,:) + te1(:,:,:)
+       vstrz1(:,:,:) = vstrz1(:,:,:) + tf1(:,:,:)
+    else
+       !! Use conservative viscous stress tensor
+
+       !! Starting with z-outer derivatives need
+       !! mu, dudz, dvdz, dwdz, dwdx, dwdy
+       call derx (td1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+       call transpose_x_to_y(td1, td2)
+       call transpose_x_to_y(mu1, tg2)
+       call dery (te2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+       call transpose_y_to_z(td2, td3)
+       call transpose_y_to_z(te2, te3)
+       call transpose_y_to_z(tg2, tg3)
+       call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+
+       td3(:,:,:) = tg3(:,:,:) * td3(:,:,:)
+       te3(:,:,:) = tg3(:,:,:) * te3(:,:,:)
+       tf3(:,:,:) = tg3(:,:,:) * tf3(:,:,:)
+       
+       call derz (ta3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+       call derz (tb3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+       call derz (tc3,tf3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+
+       call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+       call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+       td3(:,:,:) = tg3(:,:,:) * td3(:,:,:)
+       te3(:,:,:) = tg3(:,:,:) * te3(:,:,:)
+       call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+       call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+
+       ta3(:,:,:) = ta3(:,:,:) + tg3(:,:,:)
+       tb3(:,:,:) = tb3(:,:,:) + th3(:,:,:)
+       tc3(:,:,:) = two * tc3(:,:,:)
+
+       call transpose_z_to_y(ta3, ta2)
+       call transpose_z_to_y(tb3, tb2)
+       call transpose_z_to_y(tc3, tc2)
+
+       !! y-outer derivatives need
+       !! mu, dudy, dvdx, dvdy, dwdy, dvdz
+       call derx (td1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+       call transpose_x_to_y(td1, td2)
+       td2(:,:,:) = tg2(:,:,:) * td2(:,:,:)
+       call dery (tj2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+       ta2(:,:,:) = ta2(:,:,:) + tj2(:,:,:)
+       
+       call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+       call transpose_z_to_y(te3, te2)
+       te2(:,:,:) = tg2(:,:,:) * te2(:,:,:)
+       call dery (tj2,te2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+       tc2(:,:,:) = tc2(:,:,:) + tj2(:,:,:)
+       
+       call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+       call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+       call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+       td2(:,:,:) = tg2(:,:,:) * td2(:,:,:)
+       te2(:,:,:) = tg2(:,:,:) * te2(:,:,:)
+       tf2(:,:,:) = tg2(:,:,:) * tf2(:,:,:)
+       call dery (tg2,td2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+       call dery (th2,te2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+       call dery (ti2,tf2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+       ta2(:,:,:) = ta2(:,:,:) + tg2(:,:,:)
+       tb2(:,:,:) = tb2(:,:,:) + two * th2(:,:,:)
+       tc2(:,:,:) = tc2(:,:,:) + ti2(:,:,:)
+
+       call transpose_y_to_x(ta2, vstrx1)
+       call transpose_y_to_x(tb2, vstry1)
+       call transpose_y_to_x(tc2, vstrz1)
+
+       !! x-outer derivatives need
+       !! mu, dudx, dvdx, dudy, dwdx, dudz
+       call derz (td3,ux3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+       call transpose_z_to_y(td3, td2)
+       call transpose_y_to_x(td2, td1)
+       td1(:,:,:) = mu1(:,:,:) * td1(:,:,:)
+       call derx (tf1,td1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+       vstrz1(:,:,:) = vstrz1(:,:,:) + tf1(:,:,:)
+
+       call dery (td2,ux2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+       call transpose_y_to_x(td2, td1)
+       td1(:,:,:) = mu1(:,:,:) * td1(:,:,:)
+       call derx (te1,td1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+       vstry1(:,:,:) = vstry1(:,:,:) + te1(:,:,:)
+
+       call derx (td1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+       te1(:,:,:) = mu1(:,:,:) * td1(:,:,:)
+       call derx (td1,te1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+       vstrx1(:,:,:) = vstrx1(:,:,:) + two * td1(:,:,:)
+       
+       call derx (te1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+       td1(:,:,:) = mu1(:,:,:) * te1(:,:,:)
+       call derx (te1,td1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+       vstry1(:,:,:) = vstry1(:,:,:) + te1(:,:,:)
+       
+       call derx (tf1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+       td1(:,:,:) = mu1(:,:,:) * tf1(:,:,:)
+       call derx (tf1,td1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+       vstry1(:,:,:) = vstry1(:,:,:) + tf1(:,:,:)
+    endif
+
+    vstrx1(:,:,:) = mu1(:,:,:) * xnu * vstrx1(:,:,:)
+    vstry1(:,:,:) = mu1(:,:,:) * xnu * vstry1(:,:,:)
+    vstrz1(:,:,:) = mu1(:,:,:) * xnu * vstrz1(:,:,:)
+
+  endsubroutine momentum_visc
+  
   subroutine calcq(sx1, sy1, sz1, rho1)
 
     use decomp_2d, only : mytype, xsize
     use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
 
+    use decomp_2d, only : xstart, xend
+    use var, only : ny
+
     use div, only : divergence
     use decomp_2d_poisson, only : poisson
     use navier, only : gradp
 
+    use var, only : zero, one
+
+    use var, only : sxhat1 => ta1, syhat1 => tb1, szhat1 => tc1
     use var, only : ep1, drho1, px1, py1, pz1
-    use var, only : qq3, divu3, pp3
+    use var, only : qq3, divu3, pp3, dv3
 
     use param, only : itr, gdt, nrhotime
-
+    use param, only : dens1, dens2
     use param, only : itime
     
     implicit none
 
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime), intent(in) :: rho1
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: sx1, sy1, sz1
+    real(mytype), dimension(xsize(1), xsize(2), xsize(3)) :: sx1, sy1, sz1
 
     integer :: nlock
 
-    !! Compute div(rho f)
+    real(mytype) :: rho0
+
+    rho0 = min(dens1, dens2)
+
+    sxhat1(:,:,:) = sx1(:,:,:) / rho1(:,:,:,1)
+    syhat1(:,:,:) = sy1(:,:,:) / rho1(:,:,:,1)
+    szhat1(:,:,:) = sz1(:,:,:) / rho1(:,:,:,1)
+
+    !! Apply boundary conditions
+    sxhat1(1,:,:) = zero
+    sxhat1(xsize(1),:,:) = zero
+    if (xstart(2).eq.1) then
+       syhat1(:,1,:) = zero
+    endif
+    if (xend(2).eq.ny) then
+       syhat1(:,xsize(2),:) = zero
+    endif
+       
     nlock = -1
-    CALL divergence(qq3(:,:,:),rho1,sx1,sy1,sz1,ep1,drho1,divu3,-1)
+    CALL divergence(qq3,rho1,sxhat1,syhat1,szhat1,ep1,drho1,divu3,-1)
+    qq3(:,:,:) = rho0 * qq3(:,:,:)
+
+    sxhat1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * sx1(:,:,:)
+    syhat1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * sy1(:,:,:)
+    szhat1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * sz1(:,:,:)
+
+    !! Apply boundary conditions
+    sxhat1(1,:,:) = zero
+    sxhat1(xsize(1),:,:) = zero
+    if (xstart(2).eq.1) then
+       syhat1(:,1,:) = zero
+    endif
+    if (xend(2).eq.ny) then
+       syhat1(:,xsize(2),:) = zero
+    endif
+    
+    nlock = -1
+    CALL divergence(dv3,rho1,sxhat1,syhat1,szhat1,ep1,drho1,divu3,-1)
+    qq3(:,:,:) = qq3(:,:,:) + dv3(:,:,:)
 
     !! Compute q
     call poisson(qq3)
-    qq3(:,:,:) = gdt(itr) * qq3(:,:,:)      !! Scale qq3 like pp3
+    call gradp(sx1, sy1, sz1, qq3)
 
-    if (itime.eq.1) then !! Add to pressure and recompute gradients
-       pp3(:,:,:,1) = pp3(:,:,:,1) + qq3(:,:,:)
-       call gradp(px1, py1, pz1, pp3(:,:,:,1))
-       pp3(:,:,:,2) = pp3(:,:,:,1)
-    endif
+    !! Test
+    CALL divergence(dv3,rho1,sx1,sy1,sz1,ep1,drho1,divu3,-1)
+    ! print *, minval(qq3 - dv3), maxval(qq3 - dv3)
+    qq3 = qq3 - dv3
+    ! qq3 = dv3
+
+    !! Reset wall gradients
+    call gradp(px1, py1, pz1, pp3(:,:,:,1))
   endsubroutine calcq
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

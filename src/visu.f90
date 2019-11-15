@@ -55,6 +55,8 @@ contains
     use var, only : ppi3, ta3, tb3, tc3, td3, te3, tf3, di3, dip3, ph3, nzmsize
     use var, only : npress
 
+    use var, only : qq3
+
     implicit none
 
     character(len=30) :: filename
@@ -124,6 +126,27 @@ contains
        call fine_to_coarseV(1,ta1,uvisu)
 993    format('pp',I3.3)
        write(filename, 993) itime/ioutput
+       call decomp_2d_write_one(1,uvisu,filename,2)
+
+       !! Write psuedo-pressure
+       call interzpv(ppi3,qq3,dip3,sz,cifip6z,cisip6z,ciwip6z,cifz6,cisz6,ciwz6,&
+            (ph3%zen(1)-ph3%zst(1)+1),(ph3%zen(2)-ph3%zst(2)+1),nzmsize,zsize(3),1)
+       !WORK Y-PENCILS
+       call transpose_z_to_y(ppi3,pp2,ph3) !nxm nym nz
+       call interypv(ppi2,pp2,dip2,sy,cifip6y,cisip6y,ciwip6y,cify6,cisy6,ciwy6,&
+            (ph3%yen(1)-ph3%yst(1)+1),nymsize,ysize(2),ysize(3),1)
+       !WORK X-PENCILS
+       call transpose_y_to_x(ppi2,pp1,ph2) !nxm ny nz
+       call interxpv(ta1,pp1,di1,sx,cifip6,cisip6,ciwip6,cifx6,cisx6,ciwx6,&
+            nxmsize,xsize(1),xsize(2),xsize(3),1)
+
+       uvisu=0._mytype
+       if (iibm==2) then
+          ta1(:,:,:) = (one - ep1(:,:,:)) * ta1(:,:,:)
+       endif
+       call fine_to_coarseV(1,ta1,uvisu)
+11993    format('qq',I3.3)
+       write(filename, 11993) itime/ioutput
        call decomp_2d_write_one(1,uvisu,filename,2)
 
        !! LMN - write out density

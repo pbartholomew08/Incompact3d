@@ -1046,7 +1046,7 @@ contains
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime), intent(in) :: drho1
     real(mytype), dimension(zsize(1), zsize(2), zsize(3)), intent(in) :: divu3
 
-    if (mod(itime,10)==0) then
+    if (mod(itime,1)==0) then
        call divergence(dv3,rho1,ux1,uy1,uz1,ep1,drho1,divu3,2)
        call test_speed_min_max(ux1,uy1,uz1)
        if (iscalar==1) call test_scalar_min_max(phi1)
@@ -1080,7 +1080,7 @@ contains
 
           print *,'Phi'//char(48+is)//' min max=', real(phimin1,4), real(phimax1,4)
 
-          if ((phimax1.ge.scalar_ubound(is)).or.(phimin1.le.scalar_lbound(is))) then !if phi control turned off
+          if ((phimax1.gt.scalar_ubound(is)).or.(phimin1.lt.scalar_lbound(is))) then !if phi control turned off
              stop 'Scalar diverged! FATALITY!'
           endif
        endif

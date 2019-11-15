@@ -43,15 +43,14 @@ init_noise = 0.01     ! Turbulence intensity (1=100%) !! Initial condition
 inflow_noise = 0.0    ! Turbulence intensity (1=100%) !! Inflow condition
 
 ! Time stepping
-dt = 0.0048           ! Time step
+dt = 0.0006           ! Time step
 ifirst = 1            ! First iteration
 ilast = 100000        ! Last iteration
 
 ! Enable modelling tools
 ilesmod=0             ! if 0 then DNS
-numscalar=0           ! If iscalar=0 (no scalar), if iscalar=1 (scalar)
+numscalar=1           ! If iscalar=0 (no scalar), if iscalar=1 (scalar)
 iibm=0                ! Flag for immersed boundary method
-ilmn = .TRUE.         ! Enable low Mach number
 
 ! Enable io
 ivisu=1               ! Store snapshots
@@ -131,6 +130,10 @@ uset(1) = 0.02
 
 !! Initial concentrations
 cp(1) = 1.0
+
+!! Scalar bounds
+scalar_lbound(1) = 0.0
+scalar_ubound(1) = 1.0
 
 /End
 
