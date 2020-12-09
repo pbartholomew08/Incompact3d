@@ -20,7 +20,7 @@ DEFS = -DDOUBLE_PREC -DVERSION=\"$(GIT_VERSION)\"
 
 LCL = local# local,lad,sdu,archer
 IVER = 17# 15,16,17,18
-CMP = gcc# intel,gcc
+CMP = gcc# intel,gcc,flang
 FFT = generic# generic,fftw3,mkl
 
 #######Minimum defs###########
@@ -55,6 +55,11 @@ else ifeq ($(CMP),cray)
 FC = ftn
 FFLAGS = -cpp -xHost -O3 -ipo -heaparrays -safe-cray-ptr -g -traceback
 PLATFORM=intel
+else ifeq ($(CMP),flang)
+FC = mpif90
+#FFLAGS = -O3 -funroll-loops -floop-optimize -g -Warray-bounds -fcray-pointer -x f95-cpp-input
+FFLAGS = -cpp  -funroll-loops -g -O3 -Warray-bounds -fcray-pointer -fbacktrace -ffree-line-length-none -armpl -mcpu=thunderx2t99
+#-ffpe-trap=invalid,zero
 endif
 
 
@@ -74,11 +79,16 @@ PSRC = decomp_2d.f90 module_param.f90 io.f90 variables.f90 schemes.f90 derive.f9
 
 #######FFT settings##########
 ifeq ($(FFT),fftw3)
-  #FFTW3_PATH=/usr
-  #FFTW3_PATH=/usr/lib64
-  FFTW3_PATH=/usr/local/Cellar/fftw/3.3.7_1
-  INC=-I$(FFTW3_PATH)/include
-  LIBFFT=-L$(FFTW3_PATH) -lfftw3 -lfftw3f
+  ifneq ($(CMP),flang)
+    #FFTW3_PATH=/usr
+    #FFTW3_PATH=/usr/lib64
+    FFTW3_PATH=/usr/local/Cellar/fftw/3.3.7_1
+    INC=-I$(FFTW3_PATH)/include
+    LIBFFT=-L$(FFTW3_PATH) -lfftw3 -lfftw3f
+  else
+    INC=
+    LIBFFT=
+  endif
 else ifeq ($(FFT),fftw3_f03)
   FFTW3_PATH=/usr                                #ubuntu # apt install libfftw3-dev
   #FFTW3_PATH=/usr/lib64                         #fedora # dnf install fftw fftw-devel
