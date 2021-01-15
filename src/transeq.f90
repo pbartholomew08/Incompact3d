@@ -147,6 +147,11 @@ contains
     endif
     ! TODO: save the x-convective terms already in dux1, duy1, duz1
 
+    !! Skew-symmetric correction
+    tg1(:,:,:) = tg1(:,:,:) - ux1(:,:,:) * ta1(:,:,:)
+    th1(:,:,:) = th1(:,:,:) - uy1(:,:,:) * ta1(:,:,:)
+    ti1(:,:,:) = ti1(:,:,:) - uz1(:,:,:) * ta1(:,:,:)
+    
     if (ilmn) then
        !! Quasi-skew symmetric terms
        call derx (td1,rho1(:,:,:,1),di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
@@ -195,6 +200,11 @@ contains
       ti2(:,:,:) = ti2(:,:,:) + uy2(:,:,:) * tf2(:,:,:)
     endif
 
+    !! Skew-symmetric correction
+    tg2(:,:,:) = tg2(:,:,:) - ux2(:,:,:) * te2(:,:,:)
+    th2(:,:,:) = th2(:,:,:) - uy2(:,:,:) * te2(:,:,:)
+    ti2(:,:,:) = ti2(:,:,:) - uz2(:,:,:) * te2(:,:,:)
+    
     if (ilmn) then
        !! Quasi-skew symmetric terms
        call dery (te2,rho2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
@@ -221,8 +231,6 @@ contains
        tf3(:,:,:) = uz3(:,:,:) * uz3(:,:,:)
     endif
 
-
-
     call derz (tg3,td3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
     call derz (th3,te3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
     call derz (ti3,tf3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
@@ -240,6 +248,11 @@ contains
       tb3(:,:,:) = th3(:,:,:) + uz3(:,:,:) * te3(:,:,:)
       tc3(:,:,:) = ti3(:,:,:) + uz3(:,:,:) * tf3(:,:,:)
     endif
+
+    !! Skew-symmetric correction
+    ta3(:,:,:) = ta3(:,:,:) - ux3(:,:,:) * tf3(:,:,:)
+    tb3(:,:,:) = tb3(:,:,:) - uy3(:,:,:) * tf3(:,:,:)
+    tc3(:,:,:) = tc3(:,:,:) - uz3(:,:,:) * tf3(:,:,:)
 
     if (ilmn) then
        !! Quasi-skew symmetric terms
