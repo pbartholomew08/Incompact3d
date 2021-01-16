@@ -135,22 +135,22 @@ contains
     call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
-    !! Skew-symmetric correction
-    td1(:,:,:) = td1(:,:,:) - ux1(:,:,:) * ta1(:,:,:)
-    te1(:,:,:) = te1(:,:,:) - uy1(:,:,:) * ta1(:,:,:)
-    tf1(:,:,:) = tf1(:,:,:) - uz1(:,:,:) * ta1(:,:,:)
-
     ! Convective terms of x-pencil are stored in tg1,th1,ti1
     if (ilmn) then
       tg1(:,:,:) = td1(:,:,:) + rho1(:,:,:,1) * ux1(:,:,:) * ta1(:,:,:)
       th1(:,:,:) = te1(:,:,:) + rho1(:,:,:,1) * ux1(:,:,:) * tb1(:,:,:)
       ti1(:,:,:) = tf1(:,:,:) + rho1(:,:,:,1) * ux1(:,:,:) * tc1(:,:,:)
     else
-      tg1(:,:,:) = td1(:,:,:) + ux1(:,:,:) * ta1(:,:,:)
-      th1(:,:,:) = te1(:,:,:) + ux1(:,:,:) * tb1(:,:,:)
-      ti1(:,:,:) = tf1(:,:,:) + ux1(:,:,:) * tc1(:,:,:)
+      tg1(:,:,:) = ux1(:,:,:) * ta1(:,:,:) + half * (td1(:,:,:) - ux1(:,:,:) * ta1(:,:,:))
+      th1(:,:,:) = ux1(:,:,:) * tb1(:,:,:) + half * (te1(:,:,:) - ux1(:,:,:) * tb1(:,:,:))
+      ti1(:,:,:) = ux1(:,:,:) * tc1(:,:,:) + half * (tf1(:,:,:) - ux1(:,:,:) * tc1(:,:,:))
     endif
     ! TODO: save the x-convective terms already in dux1, duy1, duz1
+
+    !! Skew-symmetric correction
+    tg1(:,:,:) = tg1(:,:,:) - half * ux1(:,:,:) * ta1(:,:,:)
+    th1(:,:,:) = th1(:,:,:) - half * uy1(:,:,:) * ta1(:,:,:)
+    ti1(:,:,:) = ti1(:,:,:) - half * uz1(:,:,:) * ta1(:,:,:)
     
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -189,21 +189,21 @@ contains
     call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
     call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
 
-    !! Skew-symmetric correction
-    tg2(:,:,:) = tg2(:,:,:) - ux2(:,:,:) * te2(:,:,:)
-    th2(:,:,:) = th2(:,:,:) - uy2(:,:,:) * te2(:,:,:)
-    ti2(:,:,:) = ti2(:,:,:) - uz2(:,:,:) * te2(:,:,:)
-
     ! Convective terms of y-pencil in tg2,th2,ti2
     if (ilmn) then
       tg2(:,:,:) = tg2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * td2(:,:,:)
       th2(:,:,:) = th2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * te2(:,:,:)
       ti2(:,:,:) = ti2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * tf2(:,:,:)
     else
-      tg2(:,:,:) = tg2(:,:,:) + uy2(:,:,:) * td2(:,:,:)
-      th2(:,:,:) = th2(:,:,:) + uy2(:,:,:) * te2(:,:,:)
-      ti2(:,:,:) = ti2(:,:,:) + uy2(:,:,:) * tf2(:,:,:)
+      tg2(:,:,:) = uy2(:,:,:) * td2(:,:,:) + half * (tg2(:,:,:) - uy2(:,:,:) * td2(:,:,:))
+      th2(:,:,:) = uy2(:,:,:) * te2(:,:,:) + half * (th2(:,:,:) - uy2(:,:,:) * te2(:,:,:))
+      ti2(:,:,:) = uy2(:,:,:) * tf2(:,:,:) + half * (ti2(:,:,:) - uy2(:,:,:) * tf2(:,:,:))
     endif
+
+    !! Skew-symmetric correction
+    tg2(:,:,:) = tg2(:,:,:) - half * ux2(:,:,:) * te2(:,:,:)
+    th2(:,:,:) = th2(:,:,:) - half * uy2(:,:,:) * te2(:,:,:)
+    ti2(:,:,:) = ti2(:,:,:) - half * uz2(:,:,:) * te2(:,:,:)
     
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -238,21 +238,21 @@ contains
     call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
     call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
 
-    !! Skew-symmetric correction
-    tg3(:,:,:) = tg3(:,:,:) - ux3(:,:,:) * tf3(:,:,:)
-    th3(:,:,:) = th3(:,:,:) - uy3(:,:,:) * tf3(:,:,:)
-    ti3(:,:,:) = ti3(:,:,:) - uz3(:,:,:) * tf3(:,:,:)
-
     ! Convective terms of z-pencil in ta3,tb3,tc3
     if (ilmn) then
       ta3(:,:,:) = tg3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * td3(:,:,:)
       tb3(:,:,:) = th3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * te3(:,:,:)
       tc3(:,:,:) = ti3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * tf3(:,:,:)
     else
-      ta3(:,:,:) = tg3(:,:,:) + uz3(:,:,:) * td3(:,:,:)
-      tb3(:,:,:) = th3(:,:,:) + uz3(:,:,:) * te3(:,:,:)
-      tc3(:,:,:) = ti3(:,:,:) + uz3(:,:,:) * tf3(:,:,:)
+      ta3(:,:,:) = uz3(:,:,:) * td3(:,:,:) + half * (tg3(:,:,:) - uz3(:,:,:) * td3(:,:,:))
+      tb3(:,:,:) = uz3(:,:,:) * te3(:,:,:) + half * (th3(:,:,:) - uz3(:,:,:) * te3(:,:,:))
+      tc3(:,:,:) = uz3(:,:,:) * tf3(:,:,:) + half * (ti3(:,:,:) - uz3(:,:,:) * tf3(:,:,:))
     endif
+
+    !! Skew-symmetric correction
+    ta3(:,:,:) = ta3(:,:,:) - half * ux3(:,:,:) * tf3(:,:,:)
+    tb3(:,:,:) = tb3(:,:,:) - half * uy3(:,:,:) * tf3(:,:,:)
+    tc3(:,:,:) = tc3(:,:,:) - half * uz3(:,:,:) * tf3(:,:,:)
 
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -279,13 +279,13 @@ contains
 
     ! Add convective and diffusive terms of z-pencil (half for skew-symmetric)
     if (ilmn) then
-      td3(:,:,:) = mu3(:,:,:) * xnu*ta3(:,:,:) - half * td3(:,:,:)
-      te3(:,:,:) = mu3(:,:,:) * xnu*tb3(:,:,:) - half * te3(:,:,:)
-      tf3(:,:,:) = mu3(:,:,:) * xnu*tc3(:,:,:) - half * tf3(:,:,:)
+      td3(:,:,:) = mu3(:,:,:) * xnu*ta3(:,:,:) - td3(:,:,:)
+      te3(:,:,:) = mu3(:,:,:) * xnu*tb3(:,:,:) - te3(:,:,:)
+      tf3(:,:,:) = mu3(:,:,:) * xnu*tc3(:,:,:) - tf3(:,:,:)
     else
-      td3(:,:,:) = xnu*ta3(:,:,:) - half * td3(:,:,:)
-      te3(:,:,:) = xnu*tb3(:,:,:) - half * te3(:,:,:)
-      tf3(:,:,:) = xnu*tc3(:,:,:) - half * tf3(:,:,:)
+      td3(:,:,:) = xnu*ta3(:,:,:) - td3(:,:,:)
+      te3(:,:,:) = xnu*tb3(:,:,:) - te3(:,:,:)
+      tf3(:,:,:) = xnu*tc3(:,:,:) - tf3(:,:,:)
     endif
 
     !WORK Y-PENCILS
@@ -294,9 +294,9 @@ contains
     call transpose_z_to_y(tf3,tf2)
 
     ! Convective terms of y-pencil (tg2,th2,ti2) and sum of convective and diffusive terms of z-pencil (td2,te2,tf2) are now in tg2, th2, ti2 (half for skew-symmetric)
-    tg2(:,:,:) = td2(:,:,:) - half * tg2(:,:,:)
-    th2(:,:,:) = te2(:,:,:) - half * th2(:,:,:)
-    ti2(:,:,:) = tf2(:,:,:) - half * ti2(:,:,:)
+    tg2(:,:,:) = td2(:,:,:) - tg2(:,:,:)
+    th2(:,:,:) = te2(:,:,:) - th2(:,:,:)
+    ti2(:,:,:) = tf2(:,:,:) - ti2(:,:,:)
 
     !DIFFUSIVE TERMS IN Y
     if (iimplicit.le.0) then
@@ -410,9 +410,9 @@ contains
     endif
 
     !FINAL SUM: DIFF TERMS + CONV TERMS
-    dux1(:,:,:,1) = ta1(:,:,:) - half*tg1(:,:,:)  + td1(:,:,:)
-    duy1(:,:,:,1) = tb1(:,:,:) - half*th1(:,:,:)  + te1(:,:,:)
-    duz1(:,:,:,1) = tc1(:,:,:) - half*ti1(:,:,:)  + tf1(:,:,:)
+    dux1(:,:,:,1) = ta1(:,:,:) - tg1(:,:,:)  + td1(:,:,:)
+    duy1(:,:,:,1) = tb1(:,:,:) - th1(:,:,:)  + te1(:,:,:)
+    duz1(:,:,:,1) = tc1(:,:,:) - ti1(:,:,:)  + tf1(:,:,:)
 
     if (ilmn) then
        call momentum_full_viscstress_tensor(dux1(:,:,:,1), duy1(:,:,:,1), duz1(:,:,:,1), divu3, mu1)
