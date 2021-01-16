@@ -135,6 +135,11 @@ contains
     call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
     call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
 
+    !! Skew-symmetric correction
+    td1(:,:,:) = td1(:,:,:) - ux1(:,:,:) * ta1(:,:,:)
+    te1(:,:,:) = te1(:,:,:) - uy1(:,:,:) * ta1(:,:,:)
+    tf1(:,:,:) = tf1(:,:,:) - uz1(:,:,:) * ta1(:,:,:)
+
     ! Convective terms of x-pencil are stored in tg1,th1,ti1
     if (ilmn) then
       tg1(:,:,:) = td1(:,:,:) + rho1(:,:,:,1) * ux1(:,:,:) * ta1(:,:,:)
@@ -146,11 +151,6 @@ contains
       ti1(:,:,:) = tf1(:,:,:) + ux1(:,:,:) * tc1(:,:,:)
     endif
     ! TODO: save the x-convective terms already in dux1, duy1, duz1
-
-    !! Skew-symmetric correction
-    tg1(:,:,:) = tg1(:,:,:) - ux1(:,:,:) * ta1(:,:,:)
-    th1(:,:,:) = th1(:,:,:) - uy1(:,:,:) * ta1(:,:,:)
-    ti1(:,:,:) = ti1(:,:,:) - uz1(:,:,:) * ta1(:,:,:)
     
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -189,6 +189,11 @@ contains
     call dery (te2,uy2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
     call dery (tf2,uz2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
 
+    !! Skew-symmetric correction
+    tg2(:,:,:) = tg2(:,:,:) - ux2(:,:,:) * te2(:,:,:)
+    th2(:,:,:) = th2(:,:,:) - uy2(:,:,:) * te2(:,:,:)
+    ti2(:,:,:) = ti2(:,:,:) - uz2(:,:,:) * te2(:,:,:)
+
     ! Convective terms of y-pencil in tg2,th2,ti2
     if (ilmn) then
       tg2(:,:,:) = tg2(:,:,:) + rho2(:,:,:) * uy2(:,:,:) * td2(:,:,:)
@@ -199,11 +204,6 @@ contains
       th2(:,:,:) = th2(:,:,:) + uy2(:,:,:) * te2(:,:,:)
       ti2(:,:,:) = ti2(:,:,:) + uy2(:,:,:) * tf2(:,:,:)
     endif
-
-    !! Skew-symmetric correction
-    tg2(:,:,:) = tg2(:,:,:) - ux2(:,:,:) * te2(:,:,:)
-    th2(:,:,:) = th2(:,:,:) - uy2(:,:,:) * te2(:,:,:)
-    ti2(:,:,:) = ti2(:,:,:) - uz2(:,:,:) * te2(:,:,:)
     
     if (ilmn) then
        !! Quasi-skew symmetric terms
@@ -238,6 +238,11 @@ contains
     call derz (te3,uy3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
     call derz (tf3,uz3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
 
+    !! Skew-symmetric correction
+    tg3(:,:,:) = tg3(:,:,:) - ux3(:,:,:) * tf3(:,:,:)
+    th3(:,:,:) = th3(:,:,:) - uy3(:,:,:) * tf3(:,:,:)
+    ti3(:,:,:) = ti3(:,:,:) - uz3(:,:,:) * tf3(:,:,:)
+
     ! Convective terms of z-pencil in ta3,tb3,tc3
     if (ilmn) then
       ta3(:,:,:) = tg3(:,:,:) + rho3(:,:,:) * uz3(:,:,:) * td3(:,:,:)
@@ -248,11 +253,6 @@ contains
       tb3(:,:,:) = th3(:,:,:) + uz3(:,:,:) * te3(:,:,:)
       tc3(:,:,:) = ti3(:,:,:) + uz3(:,:,:) * tf3(:,:,:)
     endif
-
-    !! Skew-symmetric correction
-    ta3(:,:,:) = ta3(:,:,:) - ux3(:,:,:) * tf3(:,:,:)
-    tb3(:,:,:) = tb3(:,:,:) - uy3(:,:,:) * tf3(:,:,:)
-    tc3(:,:,:) = tc3(:,:,:) - uz3(:,:,:) * tf3(:,:,:)
 
     if (ilmn) then
        !! Quasi-skew symmetric terms
