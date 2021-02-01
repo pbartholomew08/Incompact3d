@@ -67,16 +67,17 @@ subroutine parameter(input_i3d)
        nclx1, nclxn, ncly1, nclyn, nclz1, nclzn, &
        ivisu, ipost, &
        gravx, gravy, gravz, &
-       icpg, icfr
+       icpg, icfr, &
+       ifilter, C_filter
   NAMELIST /NumOptions/ ifirstder, isecondder, itimescheme, iimplicit, &
-       nu0nu, cnu, fpi2, ipinter
+       nu0nu, cnu, ipinter
   NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu, iprocessing
   NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat
   NAMELIST /ScalarParam/ sc, ri, uset, cp, &
        nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn, &
        scalar_lbound, scalar_ubound, sc_even, sc_skew, &
-       alpha_sc, beta_sc, g_sc
-  NAMELIST /LESModel/ jles, smagcst, walecst, maxdsmagcst, iwall
+       alpha_sc, beta_sc, g_sc, Tref
+  NAMELIST /LESModel/ jles, smagcst, smagwalldamp, nSmag, walecst, maxdsmagcst, iwall
   NAMELIST /WallModel/ smagwalldamp
   NAMELIST /Tripping/ itrip,A_tr,xs_tr_tbl,ys_tr_tbl,ts_tr_tbl,x0_tr_tbl
   NAMELIST /ibmstuff/ cex,cey,ra,nobjmax,nraf,nvol,iforces
@@ -84,6 +85,9 @@ subroutine parameter(input_i3d)
   NAMELIST /LMN/ dens1, dens2, prandtl, ilmn_bound, ivarcoeff, ilmn_solve_temp, &
        massfrac, mol_weight, imultispecies, primary_species, &
        Fr, ibirman_eos
+  NAMELIST /ABL/ z_zero, iwallmodel, k_roughness, ustar, dBL, &
+       imassconserve, ibuoyancy, iPressureGradient, iCoriolis, CoriolisFreq, &
+       istrat, idamping, iheight, TempRate, TempFlux, itherm, gravv, UG, T_wall, T_top 
   NAMELIST /CASE/ tgv_twod, pfront
 #ifdef DEBG
   if (nrank .eq. 0) print *,'# parameter start'
@@ -201,6 +205,9 @@ subroutine parameter(input_i3d)
   if (itype.eq.itype_tbl) then
      read(10, nml=Tripping); rewind(10)
   endif
+  if (itype.eq.itype_abl) then
+     read(10, nml=ABL); rewind(10)
+  endif
   ! read(10, nml=TurbulenceWallModel)
   read(10, nml=CASE); rewind(10) !! Read case-specific variables
   close(10)
@@ -312,6 +319,8 @@ subroutine parameter(input_i3d)
         print *,'Jet'
      elseif (itype.eq.itype_tbl) then
         print *,'Turbulent boundary layer'
+     elseif (itype.eq.itype_abl) then
+        print *,'Atmospheric boundary layer'
      else
         print *,'Unknown itype: ', itype
         stop
@@ -374,13 +383,13 @@ subroutine parameter(input_i3d)
      if (ilesmod.ne.0) then
        print *,'                   : DNS'
      else
-       if (jLES.eq.1) then
+       if (jles.eq.1) then
           print *,'                   : Phys Smag'
-       else if (jLES.eq.2) then
+       else if (jles.eq.2) then
           print *,'                   : Phys WALE'
-       else if (jLES.eq.3) then
+       else if (jles.eq.3) then
           print *,'                   : Phys dyn. Smag'
-       else if (jLES.eq.4) then
+       else if (jles.eq.4) then
           print *,'                   : iSVV'
        else
        endif
@@ -399,7 +408,6 @@ subroutine parameter(input_i3d)
      write(*,"(' istret                 : ',I17)") istret
      write(*,"(' beta                   : ',F17.8)") beta
      print *,'==========================================================='
-     write(*,"(' fpi2                   : ',F17.8)") fpi2
      write(*,"(' nu0nu                  : ',F17.8)") nu0nu
      write(*,"(' cnu                    : ',F17.8)") cnu
      print *,'==========================================================='
@@ -555,7 +563,10 @@ subroutine parameter_defaults()
   itime0 = 0
   t0 = zero
   datapath = './data/'
-  fpi2 = (48._mytype / seven) / (PI**2)
+
+  !! LES stuff
+  SmagWallDamp=0
+  nSmag=1
 
   !! IBM stuff
   nraf = 0
@@ -592,6 +603,27 @@ subroutine parameter_defaults()
   !! Channel
   icpg = 0
   icfr = 1
+
+  !! Filter
+  ifilter=0
+  C_filter=0.49
+
+  !! ABL
+  z_zero=0.1
+  k_roughness=0.4
+  ustar=0.45
+  dBL=250
+  iPressureGradient=1
+  iwallmodel=1
+  imassconserve=0
+  ibuoyancy=1
+  iheight=0
+  itherm=1
+  idamping=0
+  gravv=9.81
+  TempRate=-0.25/3600
+  TempFlux=0.24
+  UG=[0d0,0d0,0d0]
 
   !! IO
   ivisu = 1
