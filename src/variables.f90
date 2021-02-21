@@ -51,6 +51,7 @@ module var
   real(mytype), save, allocatable, dimension(:,:,:,:) :: dux1,duy1,duz1  ! Output of convdiff
   real(mytype), save, allocatable, dimension(:,:,:,:,:) :: dphi1
   real(mytype), save, allocatable, dimension(:,:,:) :: mu1,mu2,mu3
+  real(mytype), save, allocatable, dimension(:,:,:) :: uxf1, uxf2, uxf3, uyf1, uyf2, uyf3, uzf1, uzf2, uzf3, phif1, phif2, phif3
 
   !arrays for post processing
   real(mytype), save, allocatable, dimension(:,:,:) :: f1,fm1
@@ -101,6 +102,17 @@ module var
 
   real(mytype), save, allocatable, dimension(:,:,:) :: srt_smag, srt_smag2
   real(mytype), save, allocatable, dimension(:,:,:) :: srt_wale, srt_wale2, srt_wale3, srt_wale4
+
+  ! working arrays for ABL
+  real(mytype), save, allocatable, dimension(:,:) :: heatflux
+
+  ! arrays for turbine modelling
+  real(mytype), save, allocatable, dimension(:,:,:) :: FTx, FTy, FTz, Fdiscx, Fdiscy, Fdiscz
+  real(mytype), save, allocatable, dimension(:,:,:,:) ::  GammaDisc
+
+  ! arrays for inflow/outflow - precursor simulations
+  real(mytype), save, allocatable, dimension(:,:,:) :: ux_inflow, uy_inflow, uz_inflow
+  real(mytype), save, allocatable, dimension(:,:,:) :: ux_recoutflow, uy_recoutflow, uz_recoutflow
 
 contains
 
@@ -156,6 +168,8 @@ contains
       mu1(:,:,:) = one
     endif
 
+    call alloc_x(uxf1);call alloc_x(uyf1);call alloc_x(uzf1);call alloc_x(phif1);
+
     allocate(pp1(nxmsize,xsize(2),xsize(3)))
     allocate(pgy1(nxmsize,xsize(2),xsize(3)))
     allocate(pgz1(nxmsize,xsize(2),xsize(3)))
@@ -181,6 +195,19 @@ contains
     bxxn=zero;bxyn=zero;bxzn=zero
     byxn=zero;byyn=zero;byzn=zero
     bzxn=zero;bzyn=zero;bzzn=zero
+
+    !inflow/outflow arrays (precursor simulations)
+    if (iin.eq.3) then
+       allocate(ux_inflow(ntimesteps,xsize(2),xsize(3)))
+       allocate(uy_inflow(ntimesteps,xsize(2),xsize(3)))
+       allocate(uz_inflow(ntimesteps,xsize(2),xsize(3)))
+    endif
+
+    if (ioutflow.eq.1) then
+       allocate(ux_recoutflow(ntimesteps,xsize(2),xsize(3)))
+       allocate(uy_recoutflow(ntimesteps,xsize(2),xsize(3)))
+       allocate(uz_recoutflow(ntimesteps,xsize(2),xsize(3)))
+    endif
 
     !pre_correc 2d array
     allocate(dpdyx1(xsize(2),xsize(3)),dpdyxn(xsize(2),xsize(3)))
@@ -230,6 +257,7 @@ contains
     call alloc_y(td2);call alloc_y(te2);call alloc_y(tf2)
     call alloc_y(tg2);call alloc_y(th2);call alloc_y(ti2)
     call alloc_y(tj2);call alloc_y(di2)
+    call alloc_y(uxf2);call alloc_y(uyf2);call alloc_y(uzf2); call alloc_y(phif2)
     allocate(phi2(ysize(1),ysize(2),ysize(3),1:numscalar))
     allocate(pgz2(ph3%yst(1):ph3%yen(1),nymsize,ysize(3)))
     allocate(pp2(ph3%yst(1):ph3%yen(1),nymsize,ysize(3)))
@@ -254,6 +282,7 @@ contains
     call alloc_z(td3);call alloc_z(te3);call alloc_z(tf3)
     call alloc_z(tg3);call alloc_z(th3);call alloc_z(ti3)
     call alloc_z(di3)
+    call alloc_z(uxf3);call alloc_z(uyf3);call alloc_z(uzf3); call alloc_z(phif3)
     allocate(phi3(zsize(1),zsize(2),zsize(3),1:numscalar))
     allocate(pgz3(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),zsize(3)))
     allocate(ppi3(ph3%zst(1):ph3%zen(1),ph3%zst(2):ph3%zen(2),zsize(3)))
@@ -274,7 +303,7 @@ contains
     call alloc_z(dv3,ph,.true.)
     call alloc_z(po3,ph,.true.)
 
-    if(ilesmod.ne.0.and.jLES.gt.0) then
+    if(ilesmod.ne.0.and.jles.gt.0) then
        call alloc_x(sgsx1);call alloc_x(sgsy1); call alloc_x(sgsz1)
        call alloc_x(sxx1);call alloc_x(syy1); call alloc_x(szz1)
        call alloc_x(sxy1);call alloc_x(sxz1); call alloc_x(syz1)
@@ -410,7 +439,7 @@ contains
        allocate(dyp(ny))
        ! compute dy for stretched mesh - Kay
        do j=2,ny-1
-          dyp(j) = 0.5*(yp(j+1)-yp(j-1))
+          dyp(j) = half*(yp(j+1)-yp(j-1))
        enddo
        dyp(1)  = yp(2) -yp(1)
        dyp(ny) = yp(ny)-yp(ny-1)
@@ -425,7 +454,7 @@ contains
     if (itimescheme.eq.1) then ! Euler
        iadvance_time=1
        adt(1)=1.0_mytype*dt
-       bdt(1)=0.0_mytype*dt
+       bdt(1)=zero
        gdt(1)=adt(1)+bdt(1)
        gdt(3)=gdt(1)
 
@@ -433,8 +462,8 @@ contains
        nrhotime = 2
     elseif (itimescheme.eq.2) then ! AB2
        iadvance_time=1
-       adt(1)=1.5_mytype*dt
-       bdt(1)=-0.5_mytype*dt
+       adt(1)=onepfive*dt
+       bdt(1)=-half*dt
        gdt(1)=adt(1)+bdt(1)
        gdt(3)=gdt(1)
 
@@ -464,7 +493,7 @@ contains
     elseif(itimescheme.eq.5) then !RK3
        iadvance_time=3
        adt(1)=(8._mytype/15._mytype)*dt
-       bdt(1)=0._mytype
+       bdt(1)=zero
        gdt(1)=adt(1)
        adt(2)=(5._mytype/12._mytype)*dt
        bdt(2)=(-17._mytype/60._mytype)*dt
@@ -477,7 +506,7 @@ contains
        nrhotime = 3
     elseif(itimescheme.eq.6) then !RK4 Carpenter and Kennedy
        iadvance_time=5
-       adt(1)=0.0_mytype
+       adt(1)=zero
        adt(2)=-0.4178904745_mytype
        adt(3)=-1.192151694643_mytype
        adt(4)=-1.697784692471_mytype
@@ -496,16 +525,6 @@ contains
        ntime = 2
        nrhotime = 5 ! (A guess)
 
-    elseif(itimescheme.eq.7) then !Semi-implicit
-       iadvance_time=1
-       adt(1)= (23./12.)*dt
-       bdt(1)=-(16./12.)*dt
-       cdt(1)= ( 5./12.)*dt
-       gdt(1)=adt(1)+bdt(1)+cdt(1)
-       gdt(3)=gdt(1)
-
-       ntime = 3
-       nrhotime = 4
     endif
     allocate(dux1(xsize(1),xsize(2),xsize(3),ntime))
     allocate(duy1(xsize(1),xsize(2),xsize(3),ntime))
@@ -513,6 +532,24 @@ contains
 
     !! Scalar
     allocate(dphi1(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3),ntime,1:numscalar)) !global indices
+
+    !! ABL
+    allocate(heatflux(xsize(1),xsize(3)))
+    allocate(PsiM(xsize(1),xsize(3)))
+    allocate(PsiH(xsize(1),xsize(3)))
+    allocate(Tstat(xsize(2),1))
+
+    !! Turbine Modelling
+    if (iturbine.eq.1) then
+       allocate(FTx(xsize(1),xsize(2),xsize(3)))
+       allocate(FTy(xsize(1),xsize(2),xsize(3)))
+       allocate(FTz(xsize(1),xsize(2),xsize(3)))
+    else if (iturbine.eq.2) then
+       allocate(Fdiscx(xsize(1),xsize(2),xsize(3)))
+       allocate(Fdiscy(xsize(1),xsize(2),xsize(3)))
+       allocate(Fdiscz(xsize(1),xsize(2),xsize(3)))
+       allocate(Gammadisc(xsize(1),xsize(2),xsize(3),Ndiscs))
+    endif
 
     !! LMN
     if (.not.ilmn) then

@@ -39,7 +39,8 @@ program xcompact3d
   use time_integrators, only : int_time
   use navier, only : velocity_to_momentum, momentum_to_velocity, pre_correc, &
        calc_divu_constraint, solve_poisson, cor_vel
-  use tools, only : restart, simu_stats
+  use tools, only : restart, simu_stats, apply_spatial_filter, read_inflow
+  use turbine, only : compute_turbines
 
   implicit none
 
@@ -50,7 +51,18 @@ program xcompact3d
      t=t0 + (itime0 + itime + 1 - ifirst)*dt
      call simu_stats(2)
 
-    do itr=1,iadvance_time
+     if (iturbine.ne.0) call compute_turbines(ux1, uy1, uz1)
+
+     if (iin.eq.3.and.mod(itime,ntimesteps)==1) then
+        call read_inflow(ux_inflow,uy_inflow,uz_inflow,itime/ntimesteps)
+     endif
+
+     if ((itype.eq.itype_abl.or.iturbine.ne.0).and.(ifilter.ne.0).and.(ilesmod.ne.0)) then
+        call filter(C_filter)
+        call apply_spatial_filter(ux1,uy1,uz1,phi1)
+     endif
+
+     do itr=1,iadvance_time
 
         call set_fluid_properties(rho1,mu1)
         call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
@@ -101,7 +113,7 @@ subroutine init_xcompact3d()
        restart, &
        simu_stats, compute_cfldiff
 
-  use param, only : ilesmod, jles
+  use param, only : ilesmod, jles,itype
   use param, only : irestart
 
   use variables, only : nx, ny, nz, nxm, nym, nzm
@@ -109,11 +121,14 @@ subroutine init_xcompact3d()
   use variables, only : nstat, nvisu, nprobe
 
   use les, only: init_explicit_les
+  use turbine, only: init_turbines
 
   use visu, only : visu_init
 
   use genepsi, only : genepsi3d, epsi_init
   use ibm, only : body
+
+  use probes, only : init_probes
 
   implicit none
 
@@ -160,13 +175,7 @@ subroutine init_xcompact3d()
 
   call init_variables()
 
-  if (itimescheme.eq.7) then
-     call init_implicit
-  endif
-
   call schemes()
-
-  !if (nrank==0) call stabiltemp()
 
   call decomp_2d_poisson_init()
   call decomp_info_init(nxm,nym,nzm,phG)
@@ -188,6 +197,7 @@ subroutine init_xcompact3d()
         call restart_forces(0)
      endif
   endif
+
   !####################################################################
   ! initialise visu
   if (ivisu.ne.0) call visu_init()
@@ -209,9 +219,19 @@ subroutine init_xcompact3d()
 
   call calc_divu_constraint(divu3, rho1, phi1)
 
+  call init_probes(ep1)
 
-  if(nrank.eq.0)then
-     open(42,file='time_evol.dat',form='formatted')
+  if (iturbine.ne.0) call init_turbines(ux1, uy1, uz1)
+
+  if (itype==2) then
+     if(nrank.eq.0)then
+        open(42,file='time_evol.dat',form='formatted')
+     endif
+  endif
+  if (itype==5) then
+     if(nrank.eq.0)then
+        open(38,file='forces.dat',form='formatted')
+     endif
   endif
 
 endsubroutine init_xcompact3d
@@ -223,14 +243,23 @@ subroutine finalise_xcompact3d()
   use decomp_2d
 
   use tools, only : simu_stats
+  use param, only : itype
 
   implicit none
 
   integer :: ierr
-
-  if(nrank.eq.0)then
-     close(42)
+  
+  if (itype==2) then
+     if(nrank.eq.0)then
+        close(42)
+     endif
   endif
+  if (itype==5) then
+     if(nrank.eq.0)then
+        close(38)
+     endif
+  endif
+  
   call simu_stats(4)
   call decomp_2d_finalize
   CALL MPI_FINALIZE(ierr)

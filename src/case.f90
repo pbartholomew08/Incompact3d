@@ -46,6 +46,8 @@ module case
   use jet
   use lockexch
   use tbl
+  use abl
+  use uniform
 
   use var, only : nzmsize
 
@@ -66,7 +68,7 @@ contains
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1,drho1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime,numscalar) :: dphi1
-    real(mytype), dimension(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress) :: pp3
+    real(mytype),dimension(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress) :: pp3
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: px1, py1, pz1
 
     INTEGER :: it, is
@@ -120,6 +122,14 @@ contains
     elseif (itype.eq.itype_tbl) then
 
        call init_tbl (ux1, uy1, uz1, ep1, phi1)
+
+    elseif (itype.eq.itype_abl) then
+
+       call init_abl (ux1, uy1, uz1, ep1, phi1)
+
+    elseif (itype.eq.itype_uniform) then
+
+       call init_uniform (ux1, uy1, uz1, ep1, phi1)
 
     endif
 
@@ -186,6 +196,14 @@ contains
 
        call boundary_conditions_tbl (ux, uy, uz, phi)
 
+    elseif (itype.eq.itype_abl) then
+
+       call boundary_conditions_abl (ux, uy, uz, phi)
+
+    elseif (itype.eq.itype_uniform) then
+
+       call boundary_conditions_uniform (ux, uy, uz, phi)
+
     endif
 
   end subroutine boundary_conditions
@@ -224,18 +242,40 @@ contains
     use var, only : itime
     use var, only : numscalar, nrhotime, npress
 
+    use turbine, only : turbine_output
+    use probes, only : write_probes
+
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)), intent(in) :: ux1, uy1, uz1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar), intent(in) :: phi1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime), intent(in) :: rho1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)), intent(in) :: ep1
-    real(mytype), dimension(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress), intent(in) :: pp3
+    real(mytype),dimension(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress), intent(in) :: pp3
+
+    integer :: j
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: T
+
+    T=0.
+    ! Recover temperature when decomposed (pressure to be recovered externally)
+    if (itype.eq.itype_abl.and.ibuoyancy.eq.1) then
+      do j=1,xsize(2) 
+        T(:,j,:,1)=phi1(:,j,:,1)+Tstat(j,1)
+      enddo
+    else
+      T=phi1
+    endif
 
     if ((ivisu.ne.zero).and.(mod(itime, ioutput).eq.0)) then
-      call write_snapshot(rho1, ux1, uy1, uz1, pp3, phi1, ep1, itime)
+      call write_snapshot(rho1, ux1, uy1, uz1, pp3, T, ep1, itime)
     end if
 
-    call postprocess_case(rho1, ux1, uy1, uz1, pp3, phi1, ep1)
-    call overall_statistic(ux1, uy1, uz1, phi1, pp3, ep1)
+    call postprocess_case(rho1, ux1, uy1, uz1, pp3, T, ep1)
+    call overall_statistic(ux1, uy1, uz1, T, pp3, ep1)
+
+    if (iturbine.ne.0) then 
+      call turbine_output()
+    endif
+
+    call write_probes(ux1, uy1, uz1, pp3, phi1)
     
   end subroutine postprocessing
   !##################################################################
@@ -288,6 +328,14 @@ contains
 
        call postprocess_tbl (ux, uy, uz, ep)
 
+    elseif (itype.eq.itype_abl) then
+
+       call postprocess_abl (ux, uy, uz, ep)
+
+    elseif (itype.eq.itype_uniform) then
+
+       call postprocess_uniform (ux, uy, uz, ep)
+
     endif
 
     if (iforces.eq.1) then
@@ -304,12 +352,13 @@ contains
   !!              momentum equations.
   !!
   !##################################################################
-  subroutine momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1)
+  subroutine momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1, phi1)
 
     implicit none
 
     real(mytype), intent(in), dimension(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
     real(mytype), intent(in), dimension(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+    real(mytype), intent(in), dimension(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime) :: dux1, duy1, duz1
 
     if (itype.eq.itype_channel) then
@@ -319,6 +368,10 @@ contains
     elseif (itype.eq.itype_jet) then
 
        call momentum_forcing_jet(dux1, duy1, duz1, rho1, ux1, uy1, uz1)
+
+    elseif (itype.eq.itype_abl) then
+
+       call momentum_forcing_abl(dux1, duy1, duz1, ux1, uy1, uz1, phi1)
 
     endif
 
@@ -338,8 +391,13 @@ contains
 
     real(mytype), intent(in), dimension(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1, phi1
     real(mytype), intent(in), dimension(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dphi1
+    real(mytype), dimension(xsize(1),xsize(2),xsize(3),ntime) :: dphi1
 
+    if (itype.eq.itype_abl) then
+
+       call scalar_forcing_abl(uy1, dphi1, phi1)
+
+    endif
 
   end subroutine scalar_forcing
   !##################################################################

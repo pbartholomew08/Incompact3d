@@ -41,12 +41,6 @@ module channel
   character(len=100) :: fileformat
   character(len=1),parameter :: NL=char(10) !new line character
 
-  !probes
-  integer, save :: nprobes, ntimes1, ntimes2
-  integer, save, allocatable, dimension(:) :: rankprobes, nxprobes, nyprobes, nzprobes
-
-  real(mytype),save,allocatable,dimension(:) :: usum,vsum,wsum,uusum,uvsum,uwsum,vvsum,vwsum,wwsum
-
   PRIVATE ! All functions/subroutines private by default
   PUBLIC :: init_channel, boundary_conditions_channel, postprocess_channel, &
        momentum_forcing_channel, &
@@ -86,7 +80,6 @@ contains
          enddo
       enddo
 
-      phi1(:,:,:,:) = zero !change as much as you want
       if ((nclyS1.eq.2).and.(xstart(2).eq.1)) then
         !! Generate a hot patch on bottom boundary
         phi1(:,1,:,:) = one
@@ -169,7 +162,7 @@ contains
     end if
 
     if (iscalar.ne.0) then
-       if (itimescheme.ne.7) then
+       if (iimplicit.le.0) then
           if ((nclyS1.eq.2).and.(xstart(2).eq.1)) then
              !! Generate a hot patch on bottom boundary
              phi(:,1,:,:) = one
@@ -177,6 +170,16 @@ contains
           if ((nclySn.eq.2).and.(xend(2).eq.ny)) THEN
              phi(:,xsize(2),:,:) = zero
           endif
+       else
+          !
+          ! Implicit boundary conditions are usually given in input file
+          ! It is possible to modify g_sc here
+          ! It is not possible to modify alpha_sc and beta_sc here
+          !
+          ! Bottom temperature if alpha_sc(:,1)=1 and beta_sc(:,1)=0 (default)
+          !if (nclyS1.eq.2) g_sc(:,1) = one
+          ! Top temperature if alpha_sc(:,2)=1 and beta_sc(:,2)=0 (default)
+          !if (nclySn.eq.2) g_sc(:,2) = zero
        endif
     endif
 
@@ -222,7 +225,7 @@ contains
 
     can=-(constant-ut4)
 
-    if (nrank==0) print *,nrank,'UT',ut4,can
+    if (nrank==0) print *,nrank,'correction to ensure constant flow rate',ut4,can
 
     do k=1,ysize(3)
        do i=1,ysize(1)
@@ -241,11 +244,9 @@ contains
     use MPI
     use decomp_2d
     use decomp_2d_io
-    use var, only : umean,vmean,wmean,pmean,uumean,vvmean,wwmean,uvmean,uwmean,vwmean,tmean
-    use var, only : phimean, phiphimean
-    use var, only : ta1, pp1, di1
-    use var, only : ppi3, dip3
-    use var, only : pp2, ppi2, dip2
+    use var, only : uvisu
+    USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
+    USE var, only : ta2,tb2,tc2,td2,te2,tf2,di2,ta3,tb3,tc3,td3,te3,tf3,di3
 
     use var, ONLY : nxmsize, nymsize, nzmsize
     use param, ONLY : npress
@@ -256,6 +257,52 @@ contains
     character(len=30) :: filename
 
     integer :: is
+
+    if ((ivisu.ne.0).and.(mod(itime, ioutput).eq.0)) then
+          !! Write vorticity as an example of post processing
+    !x-derivatives
+    call derx (ta1,ux1,di1,sx,ffx,fsx,fwx,xsize(1),xsize(2),xsize(3),0)
+    call derx (tb1,uy1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    call derx (tc1,uz1,di1,sx,ffxp,fsxp,fwxp,xsize(1),xsize(2),xsize(3),1)
+    !y-derivatives
+    call transpose_x_to_y(ux1,td2)
+    call transpose_x_to_y(uy1,te2)
+    call transpose_x_to_y(uz1,tf2)
+    call dery (ta2,td2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    call dery (tb2,te2,di2,sy,ffy,fsy,fwy,ppy,ysize(1),ysize(2),ysize(3),0)
+    call dery (tc2,tf2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+    !!z-derivatives
+    call transpose_y_to_z(td2,td3)
+    call transpose_y_to_z(te2,te3)
+    call transpose_y_to_z(tf2,tf3)
+    call derz (ta3,td3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    call derz (tb3,te3,di3,sz,ffzp,fszp,fwzp,zsize(1),zsize(2),zsize(3),1)
+    call derz (tc3,tf3,di3,sz,ffz,fsz,fwz,zsize(1),zsize(2),zsize(3),0)
+    !!all back to x-pencils
+    call transpose_z_to_y(ta3,td2)
+    call transpose_z_to_y(tb3,te2)
+    call transpose_z_to_y(tc3,tf2)
+    call transpose_y_to_x(td2,tg1)
+    call transpose_y_to_x(te2,th1)
+    call transpose_y_to_x(tf2,ti1)
+    call transpose_y_to_x(ta2,td1)
+    call transpose_y_to_x(tb2,te1)
+    call transpose_y_to_x(tc2,tf1)
+    !du/dx=ta1 du/dy=td1 and du/dz=tg1
+    !dv/dx=tb1 dv/dy=te1 and dv/dz=th1
+    !dw/dx=tc1 dw/dy=tf1 and dw/dz=ti1
+    !Q=-0.5*(ta1**2+te1**2+ti1**2)-td1*tb1-tg1*tc1-th1*tf1
+    di1=0.
+    di1(:,:,:)=-0.5*(ta1(:,:,:)**2+te1(:,:,:)**2+ti1(:,:,:)**2)-&
+         td1(:,:,:)*tb1(:,:,:)-&
+         tg1(:,:,:)*tc1(:,:,:)-&
+         th1(:,:,:)*tf1(:,:,:)
+    uvisu=0.
+    call fine_to_coarseV(1,di1,uvisu)
+994 format('./data/critq',I5.5)
+    write(filename, 994) itime/ioutput
+    call decomp_2d_write_one(1,uvisu,filename,2)
+ endif
 
     return
   end subroutine postprocess_channel
