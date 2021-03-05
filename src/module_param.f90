@@ -56,7 +56,7 @@ module variables
   integer :: nstat=1,nvisu=1,nprobe=1,nlength=1
 
   real(mytype),allocatable,dimension(:) :: sc,uset,cp,ri,group
-  real(mytype) :: fpi2, nu0nu, cnu
+  real(mytype) :: nu0nu, cnu
 
 #ifndef DOUBLE_PREC
   integer,parameter :: prec = 4
@@ -300,21 +300,27 @@ module param
        itype_dbg = 6, &
        itype_mixlayer = 7, &
        itype_jet = 8, &
-       itype_tbl = 9
+       itype_tbl = 9, &
+       itype_abl = 10, &
+       itype_uniform = 11
 
   integer :: cont_phi,itr,itime,itest,iprocessing
   integer :: ifft,istret,iforc_entree,iturb
   integer :: iin,itimescheme,iimplicit,ifirst,ilast,iles
   integer :: ntime ! How many (sub)timestpeps do we need to store?
   integer :: icheckpoint,irestart,idebmod,ioutput,imodulo2,idemarre,icommence,irecord
+  integer :: ioutflow, ninflows, ntimesteps
   integer :: itime0
   integer :: iscalar,nxboite,istat,iread,iadvance_time,irotation,iibm
   integer :: npif,izap
   integer :: ivisu, ipost, initstat
+  integer :: ifilter
   real(mytype) :: xlx,yly,zlz,dx,dy,dz,dx2,dy2,dz2,t,xxk1,xxk2,t0
   real(mytype) :: dt,re,xnu,init_noise,inflow_noise,u1,u2,angle,anglex,angley
   real(mytype) :: wrotation,ro
   real(mytype) :: dens1, dens2
+  real(mytype) :: C_filter
+  character(len=100) :: inflowpath
 
   !! Channel flow
   integer :: icpg, icfr
@@ -336,14 +342,15 @@ module param
   !! Scalars
   logical, allocatable, dimension(:) :: sc_even, sc_skew
   real(mytype), allocatable, dimension(:) :: scalar_lbound, scalar_ubound
+  real(mytype) :: Tref
 
   !! LES modelling flag
   integer :: ilesmod, iwall
 
   !LES
-  integer :: jLES
+  integer :: jles
   integer :: smagwalldamp
-  real(mytype) :: smagcst,walecst,FSGS,pr_t,maxdsmagcst
+  real(mytype) :: smagcst,nSmag,walecst,FSGS,pr_t,maxdsmagcst
 
   !! Gravity field (vector components)
   real(mytype) :: gravx, gravy, gravz
@@ -361,6 +368,28 @@ module param
 
   logical :: ibirman_eos
 
+  !! ABL
+  integer :: iwallmodel, iPressureGradient, imassconserve, ibuoyancy, iStrat, iCoriolis, idamping, iheight, itherm
+  real(mytype) :: z_zero, k_roughness, u_shear, ustar, dBL, CoriolisFreq, TempRate, TempFlux, gravv, T_wall, T_top
+  real(mytype), dimension(3) :: UG
+  real(mytype), save, allocatable, dimension(:,:) :: Tstat
+  real(mytype), save, allocatable, dimension(:,:) :: PsiM, PsiH
+
+  !! Turbine modelling
+  integer :: iturbine        ! 1: Actuator line, 2: actuator disk
+  integer :: iturboutput     ! Steps for turbine output
+  real(mytype) :: rho_air
+  ! Actuator disk
+  character(len=100) :: admCoords
+  integer :: Ndiscs          ! number of actuator discs
+  real(mytype) :: C_T, aind
+  ! Actuator line
+  integer :: NTurbines, NActuatorlines
+  integer :: ialmrestart
+  character, dimension(100) :: TurbinesPath*80, ActuatorlinesPath*80
+  character(len=100) :: filealmrestart
+  real(mytype) :: eps_factor ! Smoothing factor
+  
   !! Case-specific variables
   logical :: tgv_twod
 

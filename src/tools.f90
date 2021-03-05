@@ -38,6 +38,7 @@ module tools
   public :: test_speed_min_max, test_scalar_min_max, &
        restart, &
        simu_stats, &
+       apply_spatial_filter, read_inflow, append_outflow, write_outflow, &
        compute_cfldiff, compute_cfl, &
        rescale_pressure, mean_plane_x, mean_plane_y, mean_plane_z, &
        channel_cfr
@@ -85,7 +86,7 @@ contains
 
         print *,'Phi'//char(48+is)//' min max=', real(phimin1,4), real(phimax1,4)
 
-        if (abs(phimax1).ge.10.) then !if phi control turned off
+        if (abs(phimax1).ge.100.) then !if phi control turned off
            print *,'Scalar diverged! SIMULATION IS STOPPED!'
            call MPI_ABORT(MPI_COMM_WORLD,code,ierror); stop
         endif
@@ -145,7 +146,7 @@ contains
        print *,'U,V,W max=',real(uxmax1,4),real(uymax1,4),real(uzmax1,4)
        !print *,'CFL=',real(abs(max(uxmax1,uymax1,uzmax1)*dt)/min(dx,dy,dz),4)
 
-       if((abs(uxmax1).ge.10.).OR.(abs(uymax1).ge.10.).OR.(abs(uzmax1).ge.10.)) then
+       if((abs(uxmax1).ge.100.).OR.(abs(uymax1).ge.100.).OR.(abs(uzmax1).ge.100.)) then
          print *,'Velocity diverged! SIMULATION IS STOPPED!'
          call MPI_ABORT(MPI_COMM_WORLD,code,ierror); stop
        endif
@@ -236,7 +237,7 @@ contains
     real(mytype), dimension(xsize(1),xsize(2),xsize(3),ntime,numscalar) :: dphi1
     real(mytype), dimension(phG%zst(1):phG%zen(1),phG%zst(2):phG%zen(2),phG%zst(3):phG%zen(3)) :: pp3
     integer (kind=MPI_OFFSET_KIND) :: filesize, disp
-    real(mytype) :: xdt,tfield
+    real(mytype) :: xdt,tfield,y
     integer, dimension(2) :: dims, dummy_coords
     logical, dimension(2) :: dummy_periods
     logical :: fexists
@@ -363,17 +364,29 @@ contains
        call decomp_2d_read_var(fh,disp,3,pp3,phG)
        !
        if (iscalar==1) then
-          do is=1, numscalar
-             call decomp_2d_read_var(fh,disp,1,phi1(:,:,:,is))
-             ! previous time-steps
-             if ((itimescheme.eq.2).or.(itimescheme.eq.3)) then ! AB2 or AB3
-               call decomp_2d_read_var(fh,disp,1,dphi1(:,:,:,2,is))
-             end if
-             !
-             if (itimescheme.eq.3) then ! AB3
-               call decomp_2d_read_var(fh,disp,1,dphi1(:,:,:,3,is))
-             end if
-          end do
+         do is=1, numscalar
+           call decomp_2d_read_var(fh,disp,1,phi1(:,:,:,is))
+           ! previous time-steps
+           if ((itimescheme.eq.2).or.(itimescheme.eq.3)) then ! AB2 or AB3
+             call decomp_2d_read_var(fh,disp,1,dphi1(:,:,:,2,is))
+           end if
+           !
+           if (itimescheme.eq.3) then ! AB3
+             call decomp_2d_read_var(fh,disp,1,dphi1(:,:,:,3,is))
+           end if
+           ! ABL 
+           if (itype.eq.itype_abl) then
+             do j=1,xsize(2)
+               if (istret.eq.0) y = (j + xstart(2)-1-1)*dy
+               if (istret.ne.0) y = yp(j+xstart(2)-1)
+               if (ibuoyancy.eq.1) then
+                 Tstat(j,1) = T_wall - (T_wall-T_top)*y/yly
+               else
+                 Tstat(j,1) = 0.
+               endif
+             enddo
+           endif
+         end do
        endif
        call MPI_FILE_CLOSE(fh,ierror_o)
 
@@ -424,6 +437,181 @@ contains
     end if
 
   end subroutine restart
+  !############################################################################
+  !!  SUBROUTINE: apply_spatial_filter
+  !############################################################################
+  subroutine apply_spatial_filter(ux1,uy1,uz1,phi1)
+
+    USE decomp_2d
+    USE param
+    USE var, only: uxf1,uyf1,uzf1,uxf2,uyf2,uzf2,uxf3,uyf3,uzf3,di1,di2,di3,phif1,phif2,phif3
+    USE variables
+
+    implicit none
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)), intent(inout) :: ux1,uy1,uz1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3), numscalar), intent(inout) :: phi1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: phi11
+    real(mytype),dimension(ysize(1),ysize(2),ysize(3)) :: ux2,uy2,uz2, phi2
+    real(mytype),dimension(zsize(1),zsize(2),zsize(3)) :: ux3,uy3,uz3, phi3
+
+    integer :: i,j,k,npaire
+
+    !if (iscalar.eq.1) phi11=phi1(:,:,:,1) !currently only first scalar
+
+    if (ifilter.eq.1.or.ifilter.eq.2) then
+      call filx(uxf1,ux1,di1,fisx,fiffx,fifsx,fifwx,xsize(1),xsize(2),xsize(3),0)
+      call filx(uyf1,uy1,di1,fisx,fiffxp,fifsxp,fifwxp,xsize(1),xsize(2),xsize(3),1)
+      call filx(uzf1,uz1,di1,fisx,fiffxp,fifsxp,fifwxp,xsize(1),xsize(2),xsize(3),1)
+      !if (iscalar.eq.1) call filx(phif1,phi11,di1,fisx,fiffx,fifsx,fifwx,xsize(1),xsize(2),xsize(3),0)
+    else
+      uxf1=ux1
+      uyf1=uy1
+      uzf1=uz1
+      !if (iscalar.eq.1) phif1=phi11
+    end if
+
+    call transpose_x_to_y(uxf1,ux2)
+    call transpose_x_to_y(uyf1,uy2)
+    call transpose_x_to_y(uzf1,uz2)
+    !if (iscalar.eq.1) call transpose_x_to_y(phif1,phi2)
+
+    if (ifilter.eq.1.or.ifilter.eq.3) then ! all filter or y filter
+      call fily(uxf2,ux2,di2,fisy,fiffyp,fifsyp,fifwyp,ysize(1),ysize(2),ysize(3),1)
+      call fily(uyf2,uy2,di2,fisy,fiffy,fifsy,fifwy,ysize(1),ysize(2),ysize(3),0)
+      call fily(uzf2,uz2,di2,fisy,fiffyp,fifsyp,fifwyp,ysize(1),ysize(2),ysize(3),1)
+      !if (iscalar.eq.1) call fily(phif2,phi2,di2,fisy,fiffy,fifsy,fifwy,ysize(1),ysize(2),ysize(3),0)
+    else
+      uxf2=ux2
+      uyf2=uy2
+      uzf2=uz2
+      !if (iscalar.eq.1) phif2=phi2
+    end if
+
+    call transpose_y_to_z(uxf2,ux3)
+    call transpose_y_to_z(uyf2,uy3)
+    call transpose_y_to_z(uzf2,uz3)
+    !if (iscalar.eq.1) call transpose_y_to_z(phif2,phi3)
+
+    if (ifilter.eq.1.or.ifilter.eq.2) then
+      call filz(uxf3,ux3,di3,fisz,fiffzp,fifszp,fifwzp,zsize(1),zsize(2),zsize(3),1)
+      call filz(uyf3,uy3,di3,fisz,fiffzp,fifszp,fifwzp,zsize(1),zsize(2),zsize(3),1)
+      call filz(uzf3,uz3,di3,fisz,fiffz,fifsz,fifwz,zsize(1),zsize(2),zsize(3),0)
+      !if (iscalar.eq.1) call filz(phif3,phi3,di3,fisz,fiffz,fifsz,fifwz,zsize(1),zsize(2),zsize(3),0)
+    else
+      uxf3=ux3
+      uyf3=uy3
+      uzf3=uz3
+      !if (iscalar.eq.1) phif3=phi3
+    end if
+
+    call transpose_z_to_y(uxf3,ux2)
+    call transpose_z_to_y(uyf3,uy2)
+    call transpose_z_to_y(uzf3,uz2)
+    !if (iscalar.eq.1) call transpose_z_to_y(phif3,phi2)
+
+    call transpose_y_to_x(ux2,ux1)
+    call transpose_y_to_x(uy2,uy1)
+    call transpose_y_to_x(uz2,uz1)
+    !if (iscalar.eq.1) call transpose_y_to_x(phi2,phi11)
+
+    !if (iscalar.eq.1) phi1(:,:,:,1)=phi11
+
+  end subroutine apply_spatial_filter
+  !############################################################################
+  !!  SUBROUTINE: read_inflow
+  !############################################################################
+  subroutine read_inflow(ux1,uy1,uz1,ifileinflow)
+
+    use decomp_2d
+    use decomp_2d_io
+    use var, only: ux_inflow, uy_inflow, uz_inflow
+    use param
+    use MPI
+
+    implicit none
+
+    integer :: fh,ierror,ifileinflow
+    real(mytype), dimension(NTimeSteps,xsize(2),xsize(3)) :: ux1,uy1,uz1
+    integer (kind=MPI_OFFSET_KIND) :: disp
+    character(20) :: fninflow
+
+    ! Recirculate inflows 
+    if (ifileinflow>=ninflows) then 
+      ifileinflow=mod(ifileinflow,ninflows)
+    endif
+
+    ! Read inflow
+    write(fninflow,'(i20)') ifileinflow+1
+    if (nrank==0) print *,'READING INFLOW FROM ',trim(inflowpath)//'inflow'//trim(adjustl(fninflow))
+    call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(inflowpath)//'inflow'//trim(adjustl(fninflow)), &
+         MPI_MODE_RDONLY, MPI_INFO_NULL, &
+         fh, ierror)
+    disp = 0_MPI_OFFSET_KIND
+    call decomp_2d_read_inflow(fh,disp,ntimesteps,ux_inflow)
+    call decomp_2d_read_inflow(fh,disp,ntimesteps,uy_inflow)
+    call decomp_2d_read_inflow(fh,disp,ntimesteps,uz_inflow)
+    call MPI_FILE_CLOSE(fh,ierror)
+
+  end subroutine read_inflow
+  !############################################################################
+  !!  SUBROUTINE: append_outflow
+  !############################################################################
+  subroutine append_outflow(ux,uy,uz,timestep)
+ 
+    use decomp_2d
+    use decomp_2d_io
+    use var, only: ux_recoutflow, uy_recoutflow, uz_recoutflow
+    use param
+
+    implicit none
+
+    real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
+    integer, intent(in) :: timestep
+    integer :: j,k
+
+    if (nrank==0) print *, 'Appending outflow', timestep 
+    do k=1,xsize(3)
+    do j=1,xsize(2)
+      ux_recoutflow(timestep,j,k)=ux(xend(1),j,k)
+      uy_recoutflow(timestep,j,k)=uy(xend(1),j,k)
+      uz_recoutflow(timestep,j,k)=uz(xend(1),j,k)
+    enddo
+    enddo
+
+    return
+  end subroutine append_outflow
+  !############################################################################
+  !!  SUBROUTINE: write_outflow
+  !############################################################################
+  subroutine write_outflow(ifileoutflow)
+
+    use decomp_2d
+    use decomp_2d_io
+    use param
+    use var, only: ux_recoutflow, uy_recoutflow, uz_recoutflow
+    use MPI
+
+    implicit none
+
+    integer,intent(in) :: ifileoutflow
+    integer :: fh, ierror
+    integer (kind=MPI_OFFSET_KIND) :: filesize, disp
+    character(20) :: fnoutflow
+    
+    write(fnoutflow,'(i20)') ifileoutflow
+    if (nrank==0) print *,'WRITING OUTFLOW TO ','./out/inflow'//trim(adjustl(fnoutflow))
+    call MPI_FILE_OPEN(MPI_COMM_WORLD, './out/inflow'//trim(adjustl(fnoutflow)), &
+         MPI_MODE_CREATE+MPI_MODE_WRONLY, MPI_INFO_NULL, &
+         fh, ierror)
+    filesize = 0_MPI_OFFSET_KIND
+    call MPI_FILE_SET_SIZE(fh,filesize,ierror)  ! guarantee overwriting
+    disp = 0_MPI_OFFSET_KIND
+    call decomp_2d_write_outflow(fh,disp,ntimesteps,ux_recoutflow)
+    call decomp_2d_write_outflow(fh,disp,ntimesteps,uy_recoutflow)
+    call decomp_2d_write_outflow(fh,disp,ntimesteps,uz_recoutflow)
+    call MPI_FILE_CLOSE(fh,ierror)
+    
+  end subroutine write_outflow
   !############################################################################
   !############################################################################
   !!
@@ -670,128 +858,7 @@ contains
   end subroutine mean_plane_z
 end module tools
 !##################################################################
-!##################################################################
-subroutine stabiltemp() !from Erik, adapted by Leonardo Romero Monteiro
 
-  use param
-  use variables
-  use var
-
-  implicit none
-
-  complex(mytype) :: z,eit,ei2t,ei3t,eimt,eim2t,eim3t
-  real(mytype) :: theta, dtheta, cc, fourier, cfl
-  real(mytype) :: xkm, xk, xkp, xks, xkf, x, y
-  real(mytype) :: am1, a0, a1, a2, a3
-  real(mytype) :: bm1, b0, b1, b2, b3
-  real(mytype) :: alpha1, c1, c11
-  real(mytype) :: alpha2, c2
-  real(mytype) :: alpha3, beta3, c3, d3
-  integer :: i,ntheta,order
-
-  ntheta=360
-  dtheta=twopi/(ntheta-1.)
-  xk=(fpi2+1.)*pi*pi
-  order = 6   ! ordem da hiperviscosidade 0 = sem hiperviscosidade; 4 = 4a ordem com 2 formados;  6 = 6a ordem com 1 formado
-
-  print *,'Writing stability data!'
-
-  if (itimescheme==0) then !Euler (not implemented)
-     am1=0; a0=1.; a1=0.; a2=0.
-  endif
-
-  if (itimescheme.eq.1) then !AB2
-     am1=0; a0=1.5; a1=-0.5; a2=0.; a3=0.; bm1=1.; b0=-1.; b1=0.; b2=0.; b3=0.
-  endif
-
-  if (itimescheme.eq.3) then !RK3
-     if (nrank==0) write(*,*) "Non implemented for RK3"
-  endif
-
-  if (itimescheme.eq.2) then !AB3
-     am1=0.; a0=23./12.; a1=-16./12.; a2=5./12; a0=3./2+a2; a1=-1./2-2*a2; a3=0.; bm1=1.; b0=-1.; b1=0.; b2=0.; b3=0.
-  endif
-
-  open(10,file='stabiltemp_1.dat',form='formatted')
-  do i=1,ntheta
-     theta=(i-1)*dtheta
-
-     eit=exp(cmplx(0.,1.)*theta)
-     ei2t=eit*eit
-     ei3t=eit*eit*eit
-     eimt=1./eit
-     eim2t=1./ei2t
-     eim3t=1./ei3t
-     !z=(eit-1.)/a0
-     !z=(eit*(eit-1.))/(a0*eit+a1)
-     !z=(ei3t-ei2t)/(a0*ei2t+a1*eit+a2)
-     z=(bm1*eit+b0+b1*eimt+b2*eim2t+b3*eim3t)/(a0+a1*eimt+a2*eim2t+a3*eim3t)
-     !z=(eit-1.)/(am1*eit+a0+a1*eimt)
-     !z=(eit-1.)/(am1*eit+a0+a1*eimt+a2*eim2t)
-
-     write(10,*) real(z),imag(z)
-  enddo
-  close(10)
-
-
-  alpha1=1./3.
-  a1=(alpha1+9.)/6.
-  b1=(32.*alpha1-9.)/15.
-  c1=(-3.*alpha1+1.)/10.
-
-  if (order.eq.0) then
-
-     alpha2=2./11
-     a2=12./11
-     b2=3./11
-     c2=0.
-
-  elseif (order.eq.4) then
-
-     c11=exp(-((pi-2.*pi/3.)/(0.3*pi-2.*pi/3.))**2 )
-     xkm=(c11*fpi2+1.)*(4./9.)*pi*pi
-
-     alpha2=(64.*xkm-27.*xk-96.)/(64.*xkm-54.*xk+48.)
-     a2 = (54.*xk-15.*xkm*xk+12.)/(64.*xkm-54.*xk+48.)
-     b2 = (192.*xkm-216.*xk+24.*xkm*xk-48.)/(64.*xkm-54.*xk+48.)
-     c2 = 3.*(18.*xk -3.*xkm*xk-36.)/(64.*xkm-54.*xk+48.)
-
-  elseif(order.eq.6) then
-
-     alpha2=(45.*xk-272.)/(2*(45.*xk-208.))
-     c2=(2.-11.*alpha2)/20.
-     a2=(6.-9.*alpha2)/4.
-     b2=(-3.+24.*alpha2)/5.
-
-  endif
-
-  !alpha3=0.45
-  !beta3=(3.-2.*alpha3)/10.
-  !a3=(2.+3.*alpha3)/4.
-  !b3=(6.+7*alpha3)/8.
-  !c3=(6.+alpha3)/20.
-  !d3=(2-3.*alpha3)/40.
-
-  cc=4.
-  fourier=xnu*dt/(dx*dx)
-  cfl=cc*dt/dx
-
-  open(10,file='stabiltemp_2.dat',form='formatted')
-  do i=1,ntheta
-     theta=(i-1)*dtheta
-
-     xkp=(a1*sin(theta)+(b1/2)*sin(2*theta) +(c1/3)*sin(3*theta))/(1+2*alpha1*cos(theta))
-     xks=(2*a2*(1-cos(theta))+(b2/2)*(1-cos(2*theta)) +(2*c2/9)*(1-cos(3*theta)))/(1+2*alpha2*cos(theta))
-     !xkf=(a3+b3*cos(theta)+c3*cos(2*theta)+d3*cos(3*theta)) /(1+2*alpha3*cos(theta)+2*beta3*cos(2*theta))
-     x=-fourier*xks
-     y=-cfl*xkp!*xkf
-
-     write(10,*) x,y
-  enddo
-  close(10)
-
-end subroutine stabiltemp
-!##################################################################
 !===================================================
 ! Subroutine for computing the local and global CFL
 ! number, according to Lele 1992.
@@ -818,7 +885,7 @@ subroutine cfl_compute(uxmax,uymax,uzmax)
   if(jles==0) then
      visc=xnu
   elseif (jles==1) then
-     visc=20*fpi2*xnu
+     visc=xnu
   endif
 
   ! This is considering 1D peridic boundaries

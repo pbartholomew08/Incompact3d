@@ -98,6 +98,7 @@ contains
     use var, only : rho2,ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,tj2,di2
     use var, only : rho3,ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
     use var, only : sgsx1,sgsy1,sgsz1
+    use var, only : FTx, FTy, FTz, Fdiscx, Fdiscy, Fdiscz
     use les, only : compute_SGS
 
     use case, only : momentum_forcing
@@ -409,9 +410,9 @@ contains
     if (ilesmod.ne.0.and.jles.le.3.and.jles.gt.0) then
        ! Wall model for LES
        if (iwall.eq.1) then
-          call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,ep1,1)
+          call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,phi1,ep1,1)
        else
-          call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,ep1,0)
+          call compute_SGS(sgsx1,sgsy1,sgsz1,ux1,uy1,uz1,phi1,ep1,0)
        endif
        ! Calculate SGS stresses (conservative/non-conservative formulation)
        dux1(:,:,:,1) = dux1(:,:,:,1) + sgsx1(:,:,:)
@@ -430,7 +431,18 @@ contains
     endif
 
     !! Additional forcing
-    call momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1)
+    call momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1, phi1)
+
+    !! Turbine forcing
+    if (iturbine.eq.1) then
+       dux1(:,:,:,1)=dux1(:,:,:,1)+FTx(:,:,:)/rho_air
+       duy1(:,:,:,1)=duy1(:,:,:,1)+FTy(:,:,:)/rho_air
+       duz1(:,:,:,1)=duz1(:,:,:,1)+FTz(:,:,:)/rho_air
+    else if (iturbine.eq.2) then
+       dux1(:,:,:,1)=dux1(:,:,:,1)+Fdiscx(:,:,:)/rho_air
+       duy1(:,:,:,1)=duy1(:,:,:,1)+Fdiscy(:,:,:)/rho_air
+       duz1(:,:,:,1)=duz1(:,:,:,1)+Fdiscz(:,:,:)/rho_air
+    endif
 
     if (itrip == 1) then
        !call tripping(tb1,td1)
@@ -909,7 +921,8 @@ contains
     use param
     use variables
     use decomp_2d
-    use var, only : sgsphi1
+    use les
+    use var, only : sgsphi1, nut1
 
     implicit none
 
@@ -937,7 +950,8 @@ contains
              call scalar_settling(dphi1, phi1(:,:,:,is), is)
           endif
           ! If LES modelling is enabled, add the SGS stresses
-          if (ilesmod.ne.0.and.jles.le.2.and.jles.gt.0) then
+          if (ilesmod.ne.0.and.jles.le.3.and.jles.gt.0) then
+             call sgs_scalar_nonconservative(sgsphi1(:,:,:,is),nut1,phi1(:,:,:,is),is)
              dphi1(:,:,:,1,is) = dphi1(:,:,:,1,is) + sgsphi1(:,:,:,is)
           endif
        endif
