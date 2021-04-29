@@ -785,16 +785,17 @@ contains
     USE param, ONLY : ibirman_eos
     USE param, ONLY : xnu, prandtl
     USE param, ONLY : one
-    USE param, ONLY : iimplicit
+    USE param, ONLY : iimplicit, istret
     USE variables
 
     USE var, ONLY : ta1, tb1, tc1, td1, di1
-    USE var, ONLY : phi2, ta2, tb2, tc2, td2, te2, di2
+    USE var, ONLY : phi2, ta2, tb2, tc2, td2, te2, tf2, di2
     USE var, ONLY : phi3, ta3, tb3, tc3, td3, rho3, di3
 
     IMPLICIT NONE
 
     INTEGER :: is, tmp
+    INTEGER :: i, j, k
 
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
@@ -843,6 +844,16 @@ contains
        tmp = iimplicit
        iimplicit = 0
        CALL deryy (tc2, ta2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+       if (istret.ne.0) then
+          call dery (td2,ta2,di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+          do k = 1,ysize(3)
+             do j = 1,ysize(2)
+                do i = 1,ysize(1)
+                   tc2(i,j,k) = tc2(i,j,k)*pp2y(j)-pp4y(j)*td2(i,j,k)
+                enddo
+             enddo
+          enddo
+       endif
        iimplicit = tmp
        IF (imultispecies) THEN
           tc2(:,:,:) = (xnu / prandtl) * tc2(:,:,:) / ta2(:,:,:)
@@ -861,6 +872,16 @@ contains
                 tmp = iimplicit
                 iimplicit = 0
                 CALL deryy (td2, phi2(:,:,:,is), di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+                if (istret.ne.0) then
+                   call dery (tf2,phi2(:,:,:,is),di2,sy,ffyp,fsyp,fwyp,ppy,ysize(1),ysize(2),ysize(3),1)
+                   do k = 1,ysize(3)
+                      do j = 1,ysize(2)
+                         do i = 1,ysize(1)
+                            td2(i,j,k) = td2(i,j,k)*pp2y(j)-pp4y(j)*tf2(i,j,k)
+                         enddo
+                      enddo
+                   enddo
+                endif
                 iimplicit = tmp
                 tc2(:,:,:) = tc2(:,:,:) + (xnu / sc(is)) * (te2(:,:,:) / mol_weight(is)) * td2(:,:,:)
              ENDIF
