@@ -42,8 +42,9 @@ module var
   real(mytype), save, allocatable, dimension(:,:,:,:) :: pp3
   real(mytype), save, allocatable, dimension(:,:,:) :: uy1, uy2, uy3
   real(mytype), save, allocatable, dimension(:,:,:) :: uz1, uz2, uz3
-  real(mytype), save, allocatable, dimension(:,:,:,:) :: rho1, drho1
-  real(mytype), save, allocatable, dimension(:,:,:) :: rho2, rho3
+  real(mytype), save, allocatable, dimension(:,:,:,:) :: rhop3, drhop3
+  real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3
+  real(mytype), save, allocatable, dimension(:,:,:) :: rhop1, rhop2
   real(mytype), save, allocatable, dimension(:,:,:) :: divu3
   real(mytype), save, allocatable, dimension(:,:,:,:) :: phi1, phi2, phi3
   real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
@@ -555,11 +556,17 @@ contains
     if (.not.ilmn) then
        nrhotime = 1 !! Save some space
     endif
-    allocate(rho1(xsize(1),xsize(2),xsize(3),nrhotime)) !Need to store old density values to extrapolate drhodt
+    call alloc_x(rho1)
     call alloc_y(rho2)
     call alloc_z(rho3)
-    allocate(drho1(xsize(1),xsize(2),xsize(3),ntime))
-    rho1(:,:,:,:) = one
+    rho1(:,:,:) = one; rho2(:,:,:) = one; rho3(:,:,:) = one
+    print *, ("VARIABLES: initialise rhop correctly!")
+    stop
+    allocate(rhop3(xsize(1),xsize(2),xsize(3),nrhotime)) !Need to store old density values to extrapolate drhodt
+    call alloc_x(rhop1)
+    call alloc_y(rhop2)
+    allocate(drhop3(xsize(1),xsize(2),xsize(3),ntime))
+    rhop3(:,:,:,:) = one
     call alloc_z(divu3, opt_global=.true.) !global indices
 
     ! !TRIPPING
