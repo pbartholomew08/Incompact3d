@@ -66,16 +66,16 @@ program xcompact3d
 
         call set_fluid_properties(rho1,mu1)
         call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
-        call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+        call calculate_transeq_rhs(drhop3,dux1,duy1,duz1,dphi1,rhop3,ux1,uy1,uz1,ep1,phi1,divup3)
 
         !! XXX N.B. from this point, X-pencil velocity arrays contain momentum.
         call velocity_to_momentum(rho1,ux1,uy1,uz1)
 
-        call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
+        call int_time(rhop3,ux1,uy1,uz1,phi1,drhop3,dux1,duy1,duz1,dphi1)
         call pre_correc(ux1,uy1,uz1,ep1)
 
-        call calc_divu_constraint(divu3,rho1,phi1)
-        call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
+        call calc_divu_constraint(divup3,rhop3,phi1)
+        call solve_poisson(pp3,px1,py1,pz1,rhop3,ux1,uy1,uz1,ep1,drhop3,divup3)
         call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
 
         call momentum_to_velocity(rho1,ux1,uy1,uz1)
@@ -205,9 +205,9 @@ subroutine init_xcompact3d()
   call compute_cfldiff()
   !####################################################################
   if (irestart==0) then
-     call init(rho1,ux1,uy1,uz1,ep1,phi1,drho1,dux1,duy1,duz1,dphi1,pp3,px1,py1,pz1)
+     call init(rhop3,ux1,uy1,uz1,ep1,phi1,drhop3,dux1,duy1,duz1,dphi1,pp3,px1,py1,pz1)
      itime = 0
-     call preprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
+     call preprocessing(rhop3,ux1,uy1,uz1,pp3,phi1,ep1)
   else
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,0)
   endif
@@ -217,7 +217,7 @@ subroutine init_xcompact3d()
 
   call simu_stats(1)
 
-  call calc_divu_constraint(divu3, rho1, phi1)
+  call calc_divu_constraint(divu3, rhop3, phi1)
 
   call init_probes(ep1)
 

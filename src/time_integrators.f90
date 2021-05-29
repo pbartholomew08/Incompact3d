@@ -50,16 +50,16 @@ contains
     implicit none
 
     !! INPUT / OUTPUT
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: var1
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dvar1
+    real(mytype),dimension(:,:,:) :: var1
+    real(mytype),dimension(:,:,:,:) :: dvar1
 
     !! INPUTS
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3)), intent(in), optional :: forcing1
+    real(mytype),dimension(:,:,:), intent(in), optional :: forcing1
     integer, intent(in), optional :: npaire, isc
 
     !! LOCAL
     integer :: is, code, ierror
-
+    
 #ifdef DEBG
     if (nrank .eq. 0) print *,'# intt start'
 #endif
@@ -193,7 +193,7 @@ contains
 
   end subroutine intt
 
-  SUBROUTINE int_time(rho1, ux1, uy1, uz1, phi1, drho1, dux1, duy1, duz1, dphi1)
+  SUBROUTINE int_time(rhop3, ux1, uy1, uz1, phi1, drhop3, dux1, duy1, duz1, dphi1)
 
     USE decomp_2d, ONLY : mytype, xsize
     USE param, ONLY : zero, one
@@ -207,80 +207,84 @@ contains
     IMPLICIT NONE
 
     !! INPUT/OUTPUT
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: drho1, dux1, duy1, duz1
+    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: dux1, duy1, duz1
+    REAL(mytype), DIMENSION(:,:,:,:) :: drhop3
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime, numscalar) :: dphi1
 
     !! OUTPUT
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+    REAL(mytype), DIMENSION(:,:,:,:) :: rhop3
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
 
     !! LOCAL
     INTEGER :: is, i, j, k
 
+    print *, "int_time: allocate rhop"
+    stop
+
     CALL int_time_momentum(ux1, uy1, uz1, dux1, duy1, duz1)
 
     IF (ilmn) THEN
        IF (ilmn_solve_temp) THEN
-          CALL int_time_temperature(rho1, drho1, dphi1, phi1)
+          ! CALL int_time_temperature(rho1, drho1, dphi1, phi1)
        ELSE
-          CALL int_time_continuity(rho1, drho1)
+          CALL int_time_continuity(rhop3, drhop3)
        ENDIF
     ENDIF
 
-    IF (iscalar.NE.0) THEN
-       IF (ilmn.and.ilmn_solve_temp) THEN
-          !! Compute temperature
-          call calc_temp_eos(ta1, rho1(:,:,:,1), phi1, tb1, xsize(1), xsize(2), xsize(3))
-       ENDIF
+    ! IF (iscalar.NE.0) THEN
+    !    IF (ilmn.and.ilmn_solve_temp) THEN
+    !       !! Compute temperature
+    !       call calc_temp_eos(ta1, rho1(:,:,:,1), phi1, tb1, xsize(1), xsize(2), xsize(3))
+    !    ENDIF
 
-       DO is = 1, numscalar
-          IF (is.NE.primary_species) THEN
-             IF (iimplicit.ge.1) then
-                if (sc_even(is)) then
-                   k = 1
-                else
-                   k = 0
-                endif
-                CALL intt(phi1(:,:,:,is), dphi1(:,:,:,:,is), npaire=k, isc=is)
-             ELSE
-                CALL intt(phi1(:,:,:,is), dphi1(:,:,:,:,is))
-             ENDIF
+    !    DO is = 1, numscalar
+    !       IF (is.NE.primary_species) THEN
+    !          IF (iimplicit.ge.1) then
+    !             if (sc_even(is)) then
+    !                k = 1
+    !             else
+    !                k = 0
+    !             endif
+    !             CALL intt(phi1(:,:,:,is), dphi1(:,:,:,:,is), npaire=k, isc=is)
+    !          ELSE
+    !             CALL intt(phi1(:,:,:,is), dphi1(:,:,:,:,is))
+    !          ENDIF
 
-             DO k = 1, xsize(3)
-                DO j = 1, xsize(2)
-                   DO i = 1, xsize(1)
-                      phi1(i,j,k,is) = max(phi1(i,j,k,is),scalar_lbound(is))
-                      phi1(i,j,k,is) = min(phi1(i,j,k,is),scalar_ubound(is))
-                   ENDDO
-                ENDDO
-             ENDDO
-          ENDIF
-       ENDDO
+    !          DO k = 1, xsize(3)
+    !             DO j = 1, xsize(2)
+    !                DO i = 1, xsize(1)
+    !                   phi1(i,j,k,is) = max(phi1(i,j,k,is),scalar_lbound(is))
+    !                   phi1(i,j,k,is) = min(phi1(i,j,k,is),scalar_ubound(is))
+    !                ENDDO
+    !             ENDDO
+    !          ENDDO
+    !       ENDIF
+    !    ENDDO
 
-       IF (primary_species.GE.1) THEN
-          phi1(:,:,:,primary_species) = one
-          DO is = 1, numscalar
-             IF ((is.NE.primary_species).AND.massfrac(is)) THEN
-                phi1(:,:,:,primary_species) = phi1(:,:,:,primary_species) - phi1(:,:,:,is)
-             ENDIF
-          ENDDO
+    !    IF (primary_species.GE.1) THEN
+    !       phi1(:,:,:,primary_species) = one
+    !       DO is = 1, numscalar
+    !          IF ((is.NE.primary_species).AND.massfrac(is)) THEN
+    !             phi1(:,:,:,primary_species) = phi1(:,:,:,primary_species) - phi1(:,:,:,is)
+    !          ENDIF
+    !       ENDDO
 
-          DO k = 1, xsize(3)
-             DO j = 1, xsize(2)
-                DO i = 1, xsize(1)
-                   phi1(i,j,k,primary_species) = max(phi1(i,j,k,primary_species),zero)
-                   phi1(i,j,k,primary_species) = min(phi1(i,j,k,primary_species),one)
-                ENDDO
-             ENDDO
-          ENDDO
-       ENDIF
+    !       DO k = 1, xsize(3)
+    !          DO j = 1, xsize(2)
+    !             DO i = 1, xsize(1)
+    !                phi1(i,j,k,primary_species) = max(phi1(i,j,k,primary_species),zero)
+    !                phi1(i,j,k,primary_species) = min(phi1(i,j,k,primary_species),one)
+    !             ENDDO
+    !          ENDDO
+    !       ENDDO
+    !    ENDIF
 
-       IF (ilmn.and.ilmn_solve_temp) THEN
-          !! Compute rho
-          call calc_rho_eos(rho1(:,:,:,1), ta1, phi1, tb1, xsize(1), xsize(2), xsize(3))
-       ENDIF
-    ENDIF
+    !    IF (ilmn.and.ilmn_solve_temp) THEN
+    !       !! Compute rho
+    !       call calc_rho_eos(rho1(:,:,:,1), ta1, phi1, tb1, xsize(1), xsize(2), xsize(3))
+    !    ENDIF
+    ! ENDIF
 
   ENDSUBROUTINE int_time
 
@@ -332,7 +336,7 @@ contains
   !!      AUTHOR: Paul Bartholomew
   !!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  subroutine int_time_continuity(rho1, drho1)
+  subroutine int_time_continuity(rhop3, drhop3)
 
     USE param
     USE variables
@@ -344,24 +348,27 @@ contains
     real(mytype) :: rhomin, rhomax
 
     !! INPUTS
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
+    real(mytype),dimension(:,:,:,:) :: rhop3
 
     !! OUTPUTS
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: drho1
+    real(mytype),dimension(:,:,:,:) :: drhop3
+
+    print *, "int_time_continuity: allocate rhop"
+    stop
 
     !! First, update old density / store old transients depending on scheme
     if (itimescheme.lt.5) then
        !! Euler/AB - Store old density values
        do it = nrhotime, 2, -1
-          rho1(:,:,:,it) = rho1(:,:,:,it-1)
+          rhop3(:,:,:,it) = rhop3(:,:,:,it-1)
        enddo
     elseif (itimescheme.eq.5) then
        !! RK3 - Stores old transients
        if (itr.eq.1) then
           do it = nrhotime, 2, -1
-             rho1(:,:,:,it) = rho1(:,:,:,it-1)
+             rhop3(:,:,:,it) = rhop3(:,:,:,it-1)
           enddo
-          rho1(:,:,:,2) = drho1(:,:,:,1)
+          rhop3(:,:,:,2) = drhop3(:,:,:,1)
        endif
     else
        if (nrank.eq.0) then
@@ -371,21 +378,24 @@ contains
     endif
 
     !! Now we can update current density
-    call intt(rho1(:,:,:,1), drho1)
+    call intt(rhop3(:,:,:,1), drhop3)
 
     !! Enforce boundedness on density
     if (ilmn_bound) then
        rhomin = min(dens1, dens2)
        rhomax = max(dens1, dens2)
-       do k = 1, xsize(3)
-          do j = 1, xsize(2)
-             do i = 1, xsize(1)
-                rho1(i, j, k, 1) = max(rho1(i, j, k, 1), rhomin)
-                rho1(i, j, k, 1) = min(rho1(i, j, k, 1), rhomax)
+       do k = 1, size(rhop3,3)
+          do j = 1, size(rhop3,2)
+             do i = 1, size(rhop3,1)
+                rhop3(i, j, k, 1) = max(rhop3(i, j, k, 1), rhomin)
+                rhop3(i, j, k, 1) = min(rhop3(i, j, k, 1), rhomax)
              enddo
           enddo
        enddo
     endif
+
+    print *, "int_time_continuity: interpolate rhop3->rho1"
+    stop
 
   endsubroutine int_time_continuity
 

@@ -41,7 +41,8 @@ module tools
        apply_spatial_filter, read_inflow, append_outflow, write_outflow, &
        compute_cfldiff, compute_cfl, &
        rescale_pressure, mean_plane_x, mean_plane_y, mean_plane_z, &
-       channel_cfr
+       channel_cfr, &
+       calc_mweight
 
 contains
   !##################################################################
@@ -856,6 +857,86 @@ contains
     return
 
   end subroutine mean_plane_z
+  !##################################################################
+  SUBROUTINE calc_mweight(mweight, phi)
+    
+    USE decomp_2d
+    USE param, ONLY : zero, one
+    USE param, ONLY : massfrac, mol_weight
+    USE var, ONLY : numscalar
+
+    IMPLICIT NONE
+
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: phi
+
+    !! LOCALS
+    REAL(mytype), DIMENSION(size(phi,1), size(phi,2), size(phi,3)) :: mweight
+    INTEGER :: is
+
+    mweight(:,:,:) = zero
+    DO is = 1, numscalar
+       IF (massfrac(is)) THEN
+          mweight(:,:,:) = mweight(:,:,:) + phi(:,:,:,is) / mol_weight(is)
+       ENDIF
+    ENDDO
+    mweight(:,:,:) = one / mweight(:,:,:)
+    
+  ENDSUBROUTINE calc_mweight
+  !##################################################################
+  !##################################################################
+  SUBROUTINE calc_temp_eos(temp, rho, phi, mweight)
+
+    USE decomp_2d
+    USE param, ONLY : pressure0, imultispecies
+    USE var, ONLY : numscalar
+
+    IMPLICIT NONE
+
+    !! INPUTS
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:) :: rho
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: phi
+
+    !! OUTPUTS
+    REAL(mytype), INTENT(OUT), DIMENSION(:,:,:) :: temp
+
+    !! LOCALS
+    REAL(mytype), DIMENSION(size(rho,1), size(rho,2), size(rho,3)) :: mweight
+
+    temp(:,:,:) = pressure0 / rho(:,:,:)
+    IF (imultispecies) THEN
+       CALL calc_mweight(mweight, phi)
+       temp(:,:,:) = temp(:,:,:) * mweight(:,:,:)
+    ENDIF
+
+  ENDSUBROUTINE calc_temp_eos
+  !##################################################################
+  !##################################################################
+  SUBROUTINE calc_rho_eos(rho, temp, phi, mweight)
+
+    USE decomp_2d
+    USE param, ONLY : pressure0, imultispecies
+    USE var, ONLY : numscalar
+
+    IMPLICIT NONE
+
+    !! INPUTS
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:) :: temp
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: phi
+
+    !! OUTPUTS
+    REAL(mytype), INTENT(OUT), DIMENSION(:,:,:) :: rho
+
+    !! LOCALS
+    REAL(mytype), DIMENSION(size(temp,1), size(temp,2), size(temp,3)) :: mweight
+
+    rho(:,:,:) = pressure0 / temp(:,:,:)
+    IF (imultispecies) THEN
+       CALL calc_mweight(mweight, phi)
+       rho(:,:,:) = rho(:,:,:) * mweight(:,:,:)
+    ENDIF
+
+  ENDSUBROUTINE calc_rho_eos
+!##################################################################
 end module tools
 !##################################################################
 
@@ -1671,88 +1752,5 @@ function cx(realpart,imaginarypart)
   cx = cmplx(realpart, imaginarypart, kind=mytype)
 
 end function cx
-!##################################################################
-!##################################################################
-SUBROUTINE calc_temp_eos(temp, rho, phi, mweight, xlen, ylen, zlen)
-
-  USE decomp_2d
-  USE param, ONLY : pressure0, imultispecies
-  USE var, ONLY : numscalar
-
-  IMPLICIT NONE
-
-  !! INPUTS
-  INTEGER, INTENT(IN) :: xlen, ylen, zlen
-  REAL(mytype), INTENT(IN), DIMENSION(xlen, ylen, zlen) :: rho
-  REAL(mytype), INTENT(IN), DIMENSION(xlen, ylen, zlen, numscalar) :: phi
-
-  !! OUTPUTS
-  REAL(mytype), INTENT(OUT), DIMENSION(xlen, ylen, zlen) :: temp
-
-  !! LOCALS
-  REAL(mytype), DIMENSION(xlen, ylen, zlen) :: mweight
-
-  temp(:,:,:) = pressure0 / rho(:,:,:)
-  IF (imultispecies) THEN
-     CALL calc_mweight(mweight, phi, xlen, ylen, zlen)
-     temp(:,:,:) = temp(:,:,:) * mweight(:,:,:)
-  ENDIF
-
-ENDSUBROUTINE calc_temp_eos
-!##################################################################
-!##################################################################
-SUBROUTINE calc_rho_eos(rho, temp, phi, mweight, xlen, ylen, zlen)
-
-  USE decomp_2d
-  USE param, ONLY : pressure0, imultispecies
-  USE var, ONLY : numscalar
-
-  IMPLICIT NONE
-
-  !! INPUTS
-  INTEGER, INTENT(IN) :: xlen, ylen, zlen
-  REAL(mytype), INTENT(IN), DIMENSION(xlen, ylen, zlen) :: temp
-  REAL(mytype), INTENT(IN), DIMENSION(xlen, ylen, zlen, numscalar) :: phi
-
-  !! OUTPUTS
-  REAL(mytype), INTENT(OUT), DIMENSION(xlen, ylen, zlen) :: rho
-
-  !! LOCALS
-  REAL(mytype), DIMENSION(xlen, ylen, zlen) :: mweight
-
-  rho(:,:,:) = pressure0 / temp(:,:,:)
-  IF (imultispecies) THEN
-     CALL calc_mweight(mweight, phi, xlen, ylen, zlen)
-     rho(:,:,:) = rho(:,:,:) * mweight(:,:,:)
-  ENDIF
-
-ENDSUBROUTINE calc_rho_eos
-!##################################################################
-!##################################################################
-SUBROUTINE calc_mweight(mweight, phi, xlen, ylen, zlen)
-
-  USE decomp_2d
-  USE param, ONLY : zero, one
-  USE param, ONLY : massfrac, mol_weight
-  USE var, ONLY : numscalar
-
-  IMPLICIT NONE
-
-  INTEGER, INTENT(IN) :: xlen, ylen, zlen
-  REAL(mytype), INTENT(IN), DIMENSION(xlen, ylen, zlen, numscalar) :: phi
-
-  !! LOCALS
-  REAL(mytype), DIMENSION(xlen, ylen, zlen) :: mweight
-  INTEGER :: is
-
-  mweight(:,:,:) = zero
-  DO is = 1, numscalar
-     IF (massfrac(is)) THEN
-        mweight(:,:,:) = mweight(:,:,:) + phi(:,:,:,is) / mol_weight(is)
-     ENDIF
-  ENDDO
-  mweight(:,:,:) = one / mweight(:,:,:)
-
-ENDSUBROUTINE calc_mweight
 !##################################################################
 !##################################################################

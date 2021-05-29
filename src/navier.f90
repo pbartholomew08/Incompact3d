@@ -47,11 +47,12 @@ contains
   !! DESCRIPTION: Takes the intermediate momentum field as input,
   !!              computes div and solves pressure-Poisson equation.
   !############################################################################
-  SUBROUTINE solve_poisson(pp3, px1, py1, pz1, rho1, ux1, uy1, uz1, ep1, drho1, divu3)
+  SUBROUTINE solve_poisson(pp3, px1, py1, pz1, rhop3, ux1, uy1, uz1, ep1, drhop3, divup3)
 
     USE decomp_2d, ONLY : mytype, xsize, zsize, ph1
     USE decomp_2d_poisson, ONLY : poisson
     USE var, ONLY : nzmsize
+    USE var, ONLY : rho1
     USE var, ONLY : dv3
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff, one
@@ -62,9 +63,9 @@ contains
     !! Inputs
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ux1, uy1, uz1
     REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3)), INTENT(IN) :: ep1
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime), INTENT(IN) :: rho1
-    REAL(mytype), DIMENSION(xsize(1), xsize(2), xsize(3), ntime), INTENT(IN) :: drho1
-    REAL(mytype), DIMENSION(zsize(1), zsize(2), zsize(3)), INTENT(IN) :: divu3
+    REAL(mytype), DIMENSION(:,:,:,:), INTENT(IN) :: rhop3
+    REAL(mytype), DIMENSION(:,:,:,:), INTENT(IN) :: drhop3
+    REAL(mytype), DIMENSION(:,:,:), INTENT(IN) :: divup3
 
     !! Outputs
     REAL(mytype), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress) :: pp3
@@ -89,7 +90,7 @@ contains
        CALL momentum_to_velocity(rho1, ux1, uy1, uz1)
     ENDIF
 
-    CALL divergence(pp3(:,:,:,1),rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
+    CALL divergence(pp3(:,:,:,1),rhop3,ux1,uy1,uz1,ep1,drhop3,divup3,nlock)
     IF (ilmn.AND.ivarcoeff) THEN
        dv3(:,:,:) = pp3(:,:,:,1)
     ENDIF
@@ -102,7 +103,7 @@ contains
 
           IF (.NOT.converged) THEN
              !! Evaluate additional RHS terms
-             CALL calc_varcoeff_rhs(pp3(:,:,:,1), rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, rho0, &
+             CALL calc_varcoeff_rhs(pp3(:,:,:,1), rhop3, px1, py1, pz1, dv3, drhop3, ep1, divup3, rho0, &
                   poissiter)
           ENDIF
        ENDIF
@@ -154,12 +155,12 @@ contains
     IMPLICIT NONE
 
     !! INPUTS
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: dtemp1, rho1
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), ntime, numscalar) :: dphi1
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:) :: dtemp1, rho1
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: phi1
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:,:) :: dphi1
 
     !! OUTPUTS
-    REAL(mytype), INTENT(OUT), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drho1
+    REAL(mytype), INTENT(OUT), DIMENSION(:,:,:) :: drho1
 
     !! LOCALS
     INTEGER :: is
@@ -182,7 +183,7 @@ contains
        drho1(:,:,:) = drho1(:,:,:) / ta1(:,:,:)  !! XXX ta1 is the inverse molecular weight
     ENDIF
 
-    CALL calc_temp_eos(ta1, rho1, phi1, tb1, xsize(1), xsize(2), xsize(3))
+    CALL calc_temp_eos(ta1, rho1, phi1, tb1)
     drho1(:,:,:) = drho1(:,:,:) - dtemp1(:,:,:) / ta1(:,:,:)
 
     drho1(:,:,:) = rho1(:,:,:) * drho1(:,:,:)
@@ -220,7 +221,7 @@ contains
   ! output : pp3 (on pressure mesh)
   !written by SL 2018
   !############################################################################
-  subroutine divergence (pp3,rho1,ux1,uy1,uz1,ep1,drho1,divu3,nlock)
+  subroutine divergence (pp3,rhop3,ux1,uy1,uz1,ep1,drhop3,divup3,nlock)
 
     USE param
     USE decomp_2d
@@ -236,15 +237,18 @@ contains
 
     !X PENCILS NX NY NZ  -->NXM NY NZ
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: ux1,uy1,uz1,ep1
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime),intent(in) :: drho1
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime),intent(in) :: rho1
+    real(mytype),dimension(:,:,:,:),intent(in) :: drhop3
+    real(mytype),dimension(:,:,:,:),intent(in) :: rhop3
     !Z PENCILS NXM NYM NZ  -->NXM NYM NZM
-    real(mytype),dimension(zsize(1),zsize(2),zsize(3)),intent(in) :: divu3
+    real(mytype),dimension(:,:,:),intent(in) :: divup3
     real(mytype),dimension(ph1%zst(1):ph1%zen(1),ph1%zst(2):ph1%zen(2),nzmsize) :: pp3
 
     integer :: nvect3,i,j,k,nlock
     integer :: code
     real(mytype) :: tmax,tmoy,tmax1,tmoy1
+
+    print *, "DIVERGENCE: allocate rhop"
+    stop
 
     nvect3=(ph1%zen(1)-ph1%zst(1)+1)*(ph1%zen(2)-ph1%zst(2)+1)*nzmsize
 
@@ -261,20 +265,6 @@ contains
     !WORK X-PENCILS
 
     call derxvp(pp1,ta1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
-
-    if (ilmn.and.(nlock.gt.0)) then
-       if ((nlock.eq.1).and.(.not.ivarcoeff)) then
-          !! Approximate -div(rho u) using ddt(rho)
-          call extrapol_drhodt(ta1, rho1, drho1)
-       elseif ((nlock.eq.2).or.ivarcoeff) then
-          !! Need to check our error against divu constraint
-          !! Or else we are solving the variable-coefficient Poisson equation
-          call transpose_z_to_y(-divu3, ta2)
-          call transpose_y_to_x(ta2, ta1)
-       endif
-       call interxvp(pgy1,ta1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
-       pp1(:,:,:) = pp1(:,:,:) + pgy1(:,:,:)
-    endif
 
     call interxvp(pgy1,tb1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
     call interxvp(pgz1,tc1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
@@ -303,6 +293,18 @@ contains
 
     !! Compute sum dudx + dvdy + dwdz
     pp3(:,:,:) = pp3(:,:,:) + po3(:,:,:)
+
+    if (ilmn.and.(nlock.gt.0)) then
+       if ((nlock.eq.1).and.(.not.ivarcoeff)) then
+          !! Approximate -div(rho u) using ddt(rho)
+          call extrapol_drhodt(po3, rhop3, drhop3)
+          pp3(:,:,:) = pp3(:,:,:) + po3(:,:,:)
+       else if ((nlock.eq.2).or.ivarcoeff) then
+          !! Need to check our error against divu constraint
+          !! Or else we are solving the variable-coefficient Poisson equation
+          pp3(:,:,:) = pp3(:,:,:) - divup3(:,:,:)
+       endif
+    endif
 
     if (nlock==2) then
        pp3(:,:,:)=pp3(:,:,:)-pp3(ph1%zst(1),ph1%zst(2),nzmsize)
@@ -777,7 +779,7 @@ contains
   !############################################################################
   !############################################################################
   !! Calculate velocity-divergence constraint
-  SUBROUTINE calc_divu_constraint(divu3, rho1, phi1)
+  SUBROUTINE calc_divu_constraint(divup3, rhop3, phi1)
 
     USE decomp_2d, ONLY : mytype, xsize, ysize, zsize
     USE decomp_2d, ONLY : transpose_x_to_y, transpose_y_to_z
@@ -788,6 +790,8 @@ contains
     USE param, ONLY : iimplicit
     USE variables
 
+    USE var, ONLY : rhop1, rhop2
+    USE var, ONLY : divu3
     USE var, ONLY : ta1, tb1, tc1, td1, di1
     USE var, ONLY : phi2, ta2, tb2, tc2, td2, te2, di2
     USE var, ONLY : phi3, ta3, tb3, tc3, td3, rho3, di3
@@ -796,18 +800,29 @@ contains
 
     INTEGER :: is, tmp
 
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: rhop3
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), numscalar) :: phi1
-    REAL(mytype), INTENT(OUT), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
+    REAL(mytype), INTENT(OUT), DIMENSION(:,:,:) :: divup3
 
+    INTEGER :: xi, xj, xk
+    INTEGER :: yi, yj, yk
+    INTEGER :: zi, zj, zk
+
+    xi = size(rhop1, 1); xj = size(rhop1, 2); xk = size(rhop1, 3)
+    yi = size(rhop2, 1); yj = size(rhop2, 2); yk = size(rhop2, 3)
+    zi = size(rhop3, 1); zj = size(rhop3, 2); zk = size(rhop3, 3)
+
+    print *, "calc_divu_constraint: derivatives"
+    stop
+    
     IF (ilmn.and.(.not.ibirman_eos)) THEN
        !!------------------------------------------------------------------------------
        !! X-pencil
 
        !! We need temperature
-       CALL calc_temp_eos(ta1, rho1(:,:,:,1), phi1, tb1, xsize(1), xsize(2), xsize(3))
+       CALL calc_temp_eos(ta1, rhop3(:,:,:,1), phi1, tb1)
 
-       CALL derxx (tb1, ta1, di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+       CALL derxx (tb1, ta1, di1, sx, sfxp, ssxp, swxp, xi, xj, xk, 1)
        IF (imultispecies) THEN
           tb1(:,:,:) = (xnu / prandtl) * tb1(:,:,:) / ta1(:,:,:)
 
@@ -822,7 +837,7 @@ contains
 
           DO is = 1, numscalar
              IF (massfrac(is)) THEN
-                CALL derxx (tc1, phi1(:,:,:,is), di1, sx, sfxp, ssxp, swxp, xsize(1), xsize(2), xsize(3), 1)
+                CALL derxx (tc1, phi1(:,:,:,is), di1, sx, sfxp, ssxp, swxp, xi, xj, xk, 1)
                 tb1(:,:,:) = tb1(:,:,:) + (xnu / sc(is)) * (td1(:,:,:) / mol_weight(is)) * tc1(:,:,:)
              ENDIF
           ENDDO
@@ -842,7 +857,7 @@ contains
        !! Y-pencil
        tmp = iimplicit
        iimplicit = 0
-       CALL deryy (tc2, ta2, di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+       CALL deryy (tc2, ta2, di2, sy, sfyp, ssyp, swyp, yi, yj, yk, 1)
        iimplicit = tmp
        IF (imultispecies) THEN
           tc2(:,:,:) = (xnu / prandtl) * tc2(:,:,:) / ta2(:,:,:)
@@ -860,7 +875,7 @@ contains
              IF (massfrac(is)) THEN
                 tmp = iimplicit
                 iimplicit = 0
-                CALL deryy (td2, phi2(:,:,:,is), di2, sy, sfyp, ssyp, swyp, ysize(1), ysize(2), ysize(3), 1)
+                CALL deryy (td2, phi2(:,:,:,is), di2, sy, sfyp, ssyp, swyp, yi, yj, yk, 1)
                 iimplicit = tmp
                 tc2(:,:,:) = tc2(:,:,:) + (xnu / sc(is)) * (te2(:,:,:) / mol_weight(is)) * td2(:,:,:)
              ENDIF
@@ -880,9 +895,9 @@ contains
 
        !!------------------------------------------------------------------------------
        !! Z-pencil
-       CALL derzz (divu3, ta3, di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
+       CALL derzz (divup3, ta3, di3, sz, sfzp, sszp, swzp, zi, zj, zk, 1)
        IF (imultispecies) THEN
-          divu3(:,:,:) = (xnu / prandtl) * divu3(:,:,:) / ta3(:,:,:)
+          divup3(:,:,:) = (xnu / prandtl) * divup3(:,:,:) / ta3(:,:,:)
 
           !! Calc mean molecular weight
           td3(:,:,:) = zero
@@ -895,27 +910,31 @@ contains
 
           DO is = 1, numscalar
              IF (massfrac(is)) THEN
-                CALL derzz (tc3, phi3(:,:,:,is), di3, sz, sfzp, sszp, swzp, zsize(1), zsize(2), zsize(3), 1)
-                divu3(:,:,:) = divu3(:,:,:) + (xnu / sc(is)) * (td3(:,:,:) / mol_weight(is)) * tc3(:,:,:)
+                CALL derzz (tc3, phi3(:,:,:,is), di3, sz, sfzp, sszp, swzp, zi, zj, zk, 1)
+                divup3(:,:,:) = divup3(:,:,:) + (xnu / sc(is)) * (td3(:,:,:) / mol_weight(is)) * tc3(:,:,:)
              ENDIF
           ENDDO
        ENDIF
-       divu3(:,:,:) = divu3(:,:,:) + tb3(:,:,:)
+       divup3(:,:,:) = divup3(:,:,:) + tb3(:,:,:)
 
-       IF (imultispecies) THEN
-          !! Thus far we have computed rho * divu, want divu
-          CALL calc_rho_eos(rho3, ta3, phi3, tb3, zsize(1), zsize(2), zsize(3))
-          divu3(:,:,:) = divu3(:,:,:) / rho3(:,:,:)
-       ELSE
-          divu3(:,:,:) = (xnu / prandtl) * divu3(:,:,:) / pressure0
-       ENDIF
+       ! IF (imultispecies) THEN
+       !    !! Thus far we have computed rho * divu, want divu
+       !    CALL calc_rho_eos(rho3, ta3, phi3, tb3, zsize(1), zsize(2), zsize(3))
+       !    divu3(:,:,:) = divu3(:,:,:) / rho3(:,:,:)
+       ! ELSE
+       !    divu3(:,:,:) = (xnu / prandtl) * divu3(:,:,:) / pressure0
+       ! ENDIF
+
+       print *, "calc_divu_constraint: interpolate divup3->divu1->divu3"
+       stop
     ELSE
+       divup3(:,:,:) = zero
        divu3(:,:,:) = zero
     ENDIF
 
   ENDSUBROUTINE calc_divu_constraint
 
-  SUBROUTINE extrapol_drhodt(drhodt1_next, rho1, drho1)
+  SUBROUTINE extrapol_drhodt(drhodt_next, rho, drho)
 
     USE decomp_2d, ONLY : mytype, xsize, nrank
     USE param, ONLY : ntime, nrhotime, itime, itimescheme, itr, dt, gdt, irestart
@@ -926,20 +945,20 @@ contains
 
     INTEGER :: subitr
 
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: drho1
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
-    REAL(mytype), INTENT(OUT), DIMENSION(xsize(1), xsize(2), xsize(3)) :: drhodt1_next
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: drho
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: rho
+    REAL(mytype), INTENT(OUT), DIMENSION(:,:,:) :: drhodt_next
 
     IF (itimescheme.EQ.1) THEN
        !! EULER
-       drhodt1_next(:,:,:) = (rho1(:,:,:,1) - rho1(:,:,:,2)) / dt
+       drhodt_next(:,:,:) = (rho(:,:,:,1) - rho(:,:,:,2)) / dt
     ELSEIF (itimescheme.EQ.2) THEN
        !! AB2
        IF ((itime.EQ.1).AND.(irestart.EQ.0)) THEN
-          drhodt1_next(:,:,:) = (rho1(:,:,:,1) - rho1(:,:,:,2)) / dt
+          drhodt_next(:,:,:) = (rho(:,:,:,1) - rho(:,:,:,2)) / dt
        ELSE
-          drhodt1_next(:,:,:) = three * rho1(:,:,:,1) - four * rho1(:,:,:,2) + rho1(:,:,:,3)
-          drhodt1_next(:,:,:) = half * drhodt1_next(:,:,:) / dt
+          drhodt_next(:,:,:) = three * rho(:,:,:,1) - four * rho(:,:,:,2) + rho(:,:,:,3)
+          drhodt_next(:,:,:) = half * drhodt_next(:,:,:) / dt
        ENDIF
        ! ELSEIF (itimescheme.EQ.3) THEN
        !    !! AB3
@@ -948,13 +967,13 @@ contains
     ELSEIF (itimescheme.EQ.5) THEN
        !! RK3
        IF (itime.GT.1) THEN
-          drhodt1_next(:,:,:) = rho1(:,:,:,2)
+          drhodt_next(:,:,:) = rho(:,:,:,2)
           DO subitr = 1, itr
-             drhodt1_next(:,:,:) = drhodt1_next(:,:,:) + (gdt(subitr) / dt) &
-                  * (rho1(:,:,:,2) - rho1(:,:,:,3))
+             drhodt_next(:,:,:) = drhodt_next(:,:,:) + (gdt(subitr) / dt) &
+                  * (rho(:,:,:,2) - rho(:,:,:,3))
           ENDDO
        ELSE
-          drhodt1_next(:,:,:) = drho1(:,:,:,1)
+          drhodt_next(:,:,:) = drho(:,:,:,1)
        ENDIF
     ELSE
        IF (nrank.EQ.0) THEN
@@ -964,7 +983,9 @@ contains
     ENDIF
 
     IF (ibirman_eos) THEN
-       CALL birman_drhodt_corr(drhodt1_next, rho1)
+       print *, "extrapol_drhodt: trying to call birman"
+       stop
+       ! CALL birman_drhodt_corr(drhodt1_next, rho1)
     ENDIF
 
   ENDSUBROUTINE extrapol_drhodt
@@ -1088,7 +1109,7 @@ contains
   !! DESCRIPTION: Computes RHS of the variable-coefficient Poisson solver
   !!
   !############################################################################
-  SUBROUTINE calc_varcoeff_rhs(pp3, rho1, px1, py1, pz1, dv3, drho1, ep1, divu3, rho0, poissiter)
+  SUBROUTINE calc_varcoeff_rhs(pp3, rhop3, px1, py1, pz1, dv3, drhop3, ep1, divup3, rho0, poissiter)
 
     USE MPI
 
@@ -1097,6 +1118,7 @@ contains
     USE param, ONLY : nrhotime, ntime
     USE param, ONLY : one
 
+    USE var, ONLY : rho1
     USE var, ONLY : ta1, tb1, tc1
     USE var, ONLY : nzmsize
 
@@ -1105,10 +1127,10 @@ contains
     !! INPUTS
     INTEGER, INTENT(IN) :: poissiter
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: px1, py1, pz1
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
-    REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3), ntime) :: drho1
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: rhop3
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:,:) :: drhop3
     REAL(mytype), INTENT(IN), DIMENSION(xsize(1), xsize(2), xsize(3)) :: ep1
-    REAL(mytype), INTENT(IN), DIMENSION(zsize(1), zsize(2), zsize(3)) :: divu3
+    REAL(mytype), INTENT(IN), DIMENSION(:,:,:) :: divup3
     REAL(mytype), INTENT(IN), DIMENSION(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize) :: dv3
     real(mytype) :: rho0
 
@@ -1119,6 +1141,9 @@ contains
     INTEGER :: nlock, ierr
     REAL(mytype) :: rhomin
 
+    !! XXX: Recall grad(p) / rho is evaluated on velocity mesh
+    !! - div(u) is imposed on pressure mesh.
+    
     IF (poissiter.EQ.0) THEN
        !! Compute rho0
        rhomin = MINVAL(rho1)
@@ -1126,12 +1151,12 @@ contains
        CALL MPI_ALLREDUCE(rhomin,rho0,1,real_type,MPI_MIN,MPI_COMM_WORLD,ierr)
     ENDIF
 
-    ta1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * px1(:,:,:)
-    tb1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * py1(:,:,:)
-    tc1(:,:,:) = (one - rho0 / rho1(:,:,:,1)) * pz1(:,:,:)
+    ta1(:,:,:) = (one - rho0 / rho1(:,:,:)) * px1(:,:,:)
+    tb1(:,:,:) = (one - rho0 / rho1(:,:,:)) * py1(:,:,:)
+    tc1(:,:,:) = (one - rho0 / rho1(:,:,:)) * pz1(:,:,:)
 
     nlock = -1 !! Don't do any funny business with LMN
-    CALL divergence(pp3,rho1,ta1,tb1,tc1,ep1,drho1,divu3,nlock)
+    CALL divergence(pp3,rhop3,ta1,tb1,tc1,ep1,drhop3,divup3,nlock)
 
     !! lapl(p) = div((1 - rho0/rho) grad(p)) + rho0(div(u*) - div(u))
     !! dv3 contains div(u*) - div(u)

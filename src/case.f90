@@ -60,13 +60,16 @@ module case
 
 contains
   !##################################################################
-  subroutine init (rho1, ux1, uy1, uz1, ep1, phi1, drho1, dux1, duy1, duz1, dphi1, &
+  subroutine init (rhop3, ux1, uy1, uz1, ep1, phi1, drhop3, dux1, duy1, duz1, dphi1, &
        pp3, px1, py1, pz1)
 
+    use var, only : rho1
+    
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1,ep1
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
+    real(mytype),dimension(:,:,:,:) :: rhop3
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1,drho1
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime) :: dux1,duy1,duz1
+    real(mytype),dimension(:,:,:,:) :: drhop3
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),ntime,numscalar) :: dphi1
     real(mytype),dimension(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, npress) :: pp3
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: px1, py1, pz1
@@ -81,7 +84,8 @@ contains
 
     !! Default density and pressure0 to one
     pressure0 = one
-    rho1(:,:,:,:) = one
+    rho1(:,:,:) = one
+    rhop3(:,:,:,:) = one
 
     if (itype.eq.itype_user) then
 
@@ -133,16 +137,20 @@ contains
 
     endif
 
+    !! TODO: interpolate rho1->rhop3
+    print *, ("INIT: interpolate rho1->rhop3")
+    stop
+
     !! Setup old arrays
     do it = 1, ntime
-       drho1(:,:,:,it) = rho1(:,:,:,1)
+       drhop3(:,:,:,it) = rhop3(:,:,:,1)
        dux1(:,:,:,it)=ux1(:,:,:)
        duy1(:,:,:,it)=uy1(:,:,:)
        duz1(:,:,:,it)=uz1(:,:,:)
     enddo
 
     do it = 2, nrhotime
-       rho1(:,:,:,it) = rho1(:,:,:,1)
+       rhop3(:,:,:,it) = rhop3(:,:,:,1)
     enddo
 
     do is = 1, numscalar

@@ -41,26 +41,30 @@ contains
   !! DESCRIPTION: Calculates the right hand sides of all transport
   !!              equations - momentum, scalar transport, etc.
   !############################################################################
-  subroutine calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+  subroutine calculate_transeq_rhs(drhop3,dux1,duy1,duz1,dphi1,rhop3,ux1,uy1,uz1,ep1,phi1,divup3)
 
     use decomp_2d, only : mytype, xsize, zsize
     use variables, only : numscalar
     use param, only : ntime, ilmn, nrhotime, ilmn_solve_temp
-
+    use var, only : rho1, divu3
+    
     implicit none
 
     !! Inputs
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: ux1, uy1, uz1
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3), nrhotime), intent(in) :: rho1
+    real(mytype), dimension(:,:,:,:), intent(in) :: rhop3
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), numscalar), intent(in) :: phi1
     real(mytype), dimension(xsize(1), xsize(2), xsize(3)), intent(in) :: ep1
-    real(mytype), dimension(zsize(1), zsize(2), zsize(3)), intent(in) :: divu3
+    real(mytype), dimension(:,:,:), intent(in) :: divup3
 
     !! Outputs
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime) :: dux1, duy1, duz1
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime) :: drho1
+    real(mytype), dimension(:,:,:,:) :: drhop3
     real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime, numscalar) :: dphi1
 
+    print *, "calculate_transeq_rhs: allocate rhop"
+    stop
+    
     !! Momentum equations
     call momentum_rhs_eq(dux1,duy1,duz1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
 
@@ -71,9 +75,9 @@ contains
     !! Other (LMN, ...)
     if (ilmn) THEN
        if (ilmn_solve_temp) THEN
-          call temperature_rhs_eq(drho1, rho1, ux1, uy1, uz1, phi1)
+          ! call temperature_rhs_eq(drho1, rho1, ux1, uy1, uz1, phi1)
        else
-          call continuity_rhs_eq(drho1, rho1, ux1, uy1, uz1, divu3)
+          call continuity_rhs_eq(drhop3, rhop3, ux1, uy1, uz1, divup3)
        endif
     endif
 
@@ -1033,16 +1037,18 @@ contains
   !############################################################################
   subroutine continuity_rhs_eq(drhop3, rhop3, ux1, uy1, uz1, divup3)
 
-    use decomp_2d, only : mytype, xsize, ysize, zsize
+    use decomp_2d, only : mytype
+    use decomp_2d, only : xsize, ysize, zsize
+    use decomp_2d, only : ph1, ph3, ph4
     use decomp_2d, only : transpose_z_to_y, transpose_y_to_x
     use param, only : ntime, nrhotime, ibirman_eos
     use param, only : xnu, prandtl
     use param, only : iimplicit
     use variables
 
-    use var, only : ta1, tb1, di1
-    use var, only : rho2, uy2, ta2, tb2, di2
-    use var, only : rho3, uz3, ta3, di3
+    use var, only : rhop1, ta1, tb1, di1
+    use var, only : rhop2, uy2, ta2, tb2, di2
+    use var, only : uz3, ta3, di3
     USE var, ONLY: ta1, tb1, tc1, pp1, pgy1, pgz1, di1, &
          duxdxp2, uyp2, uzp2, duydypi2, upi2, ta2, dipp2, &
          duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize
@@ -1050,42 +1056,50 @@ contains
     implicit none
 
     real(mytype), intent(in), dimension(xsize(1), xsize(2), xsize(3)) :: ux1, uy1, uz1
-    real(mytype), intent(in), dimension(xsize(1), xsize(2), xsize(3), nrhotime) :: rho1
-    real(mytype), intent(in), dimension(zsize(1), zsize(2), zsize(3)) :: divu3
+    real(mytype), intent(in), dimension(:,:,:,:) :: rhop3
+    real(mytype), intent(in), dimension(:,:,:) :: divup3
 
-    real(mytype), dimension(xsize(1), xsize(2), xsize(3), ntime) :: drho1
+    real(mytype), dimension(:,:,:,:) :: drhop3
 
     real(mytype) :: invpe
 
+    integer :: xi, xj, xk
+    integer :: yi, yj, yk
+    integer :: zi, zj, zk
+    
     invpe = xnu / prandtl
 
+    xi = size(rhop1, 1); xj = size(rhop1, 2); xk = size(rhop1, 3)
+    yi = size(rhop2, 1); yj = size(rhop2, 2); yk = size(rhop2, 3)
+    zi = size(rhop3, 1); zj = size(rhop3, 2); zk = size(rhop3, 3)
+    
     !! X derivative
     call transpose_z_to_y(rhop3, rhop2)
     call transpose_y_to_x(rhop2, rhop1)
-    call derx (ta1, rhop1, di1, sx, ffxp, fsxp, fwxp, xsize(1), xsize(2), xsize(3), 1)
+    call derx (ta1, rhop1, di1, sx, ffxp, fsxp, fwxp, xi, xj, xk, 1)
     call transpose_x_to_y(ta1, ta2)
     call transpose_y_to_z(ta2, ta3)
-    call interxvp(pp1,yx1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
+    call interxvp(pp1,ux1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
     call transpose_x_to_y(pp1,duxdxp2,ph4)!->NXM NY NZ
     call interyvp(upi2,duxdxp2,dipp2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
     call transpose_y_to_z(duydypi2,duxydxyp3,ph3)!->NXM NYM NZ
-    call interzvp(pp3,duxydxyp3,dipp3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
+    call interzvp(po3,duxydxyp3,dipp3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
          (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
-    drhop3(:,:,:,1) = -pp3(:,:,:) * ta3(:,:,:)
+    drhop3(:,:,:,1) = -po3(:,:,:) * ta3(:,:,:)
     
     !! Y derivative
-    call dery (ta2, rhop2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-    transpose_y_to_z(ta2, ta3)
+    call dery (ta2, rhop2, di2, sy, ffyp, fsyp, fwyp, ppy, yi, yj, yk, 1)
+    call transpose_y_to_z(ta2, ta3)
     call interxvp(pgy1,uy1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
     call transpose_x_to_y(pgy1,uyp2,ph4)
     call interyvp(duydypi2,uyp2,dipp2,sy,cfy6,csy6,cwy6,ppyi,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),0)
     call transpose_y_to_z(duydypi2,duxydxyp3,ph3)!->NXM NYM NZ
-    call interzvp(pp3,duxydxyp3,dipp3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
+    call interzvp(po3,duxydxyp3,dipp3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
          (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
-    drhop3(:,:,:,1) = drhop3(:,:,:,1) - pp3(:,:,:) * ta3(:,:,:)
+    drhop3(:,:,:,1) = drhop3(:,:,:,1) - po3(:,:,:) * ta3(:,:,:)
     
     !! Z derivative
-    call derz (ta3, rhop3, di3, sz, ffzp, fszp, fwzp, zsize(1), zsize(2), zsize(3), 1)
+    call derz (ta3, rhop3, di3, sz, ffzp, fszp, fwzp, zi, zj, zk, 1)
     call interxvp(pgz1,uz1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
     call transpose_x_to_y(pgz1,uzp2,ph4)
     call interyvp(upi2,uzp2,dipp2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
@@ -1095,11 +1109,7 @@ contains
     drhop3(:,:,:,1) = drhop3(:,:,:,1) - po3(:,:,:) * ta3(:,:,:)
 
     !! rho*divu
-    drhop3(:,:,:,1) = drhop3(:,:,:,1) - rhop3(:,:,:) * divup3(:,:,:)
-
-    call transpose_z_to_y(ta3, tb2)
-    call dery (ta2, rho2, di2, sy, ffyp, fsyp, fwyp, ppy, ysize(1), ysize(2), ysize(3), 1)
-    ta2(:,:,:) = uy2(:,:,:) * ta2(:,:,:) + tb2(:,:,:)
+    drhop3(:,:,:,1) = drhop3(:,:,:,1) - rhop3(:,:,:,1) * divup3(:,:,:)
 
     ! if (ibirman_eos) THEN !! Add a diffusion term
     !    call derzz (ta3,rho3,di3,sz,sfzp,sszp,swzp,zsize(1),zsize(2),zsize(3),1)
