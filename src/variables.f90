@@ -45,7 +45,7 @@ module var
   real(mytype), save, allocatable, dimension(:,:,:,:) :: rhop3, drhop3
   real(mytype), save, allocatable, dimension(:,:,:) :: rho1, rho2, rho3
   real(mytype), save, allocatable, dimension(:,:,:) :: rhop1, rhop2
-  real(mytype), save, allocatable, dimension(:,:,:) :: divu3
+  real(mytype), save, allocatable, dimension(:,:,:) :: divu3, divup3
   real(mytype), save, allocatable, dimension(:,:,:,:) :: phi1, phi2, phi3
   real(mytype), save, allocatable, dimension(:,:,:) :: px1, py1, pz1
   real(mytype), save, allocatable, dimension(:,:,:) :: ep1, diss1, pre1, depo, depof, kine
@@ -115,11 +115,15 @@ module var
   real(mytype), save, allocatable, dimension(:,:,:) :: ux_inflow, uy_inflow, uz_inflow
   real(mytype), save, allocatable, dimension(:,:,:) :: ux_recoutflow, uy_recoutflow, uz_recoutflow
 
+  !! Working arrays for transport eq on pressure grid
+  real(mytype), save, allocatable, dimension(:,:,:) :: tap1
+  real(mytype), save, allocatable, dimension(:,:,:) :: tap2
+  real(mytype), save, allocatable, dimension(:,:,:) :: tap3
+
+  TYPE(DECOMP_INFO), save :: ph! decomposition object
 contains
 
   subroutine init_variables
-
-    TYPE(DECOMP_INFO), save :: ph! decomposition object
 
 #ifdef DEBG
     if (nrank .eq. 0) print *,'# init_variables start'
@@ -560,14 +564,19 @@ contains
     call alloc_y(rho2)
     call alloc_z(rho3)
     rho1(:,:,:) = one; rho2(:,:,:) = one; rho3(:,:,:) = one
+    call alloc_z(divu3,opt_global=.true.) !global indices
     print *, ("VARIABLES: initialise rhop correctly!")
     stop
-    allocate(rhop3(xsize(1),xsize(2),xsize(3),nrhotime)) !Need to store old density values to extrapolate drhodt
-    call alloc_x(rhop1)
-    call alloc_y(rhop2)
-    allocate(drhop3(xsize(1),xsize(2),xsize(3),ntime))
+    allocate(rhop3(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, nrhotime)) !Need to store old density values to extrapolate drhodt
+    call alloc_x(rhop1, ph, .true.)
+    call alloc_y(rhop2, ph, .true.)
+    allocate(drhop3(ph1%zst(1):ph1%zen(1), ph1%zst(2):ph1%zen(2), nzmsize, ntime))
+    call alloc_z(divup3, ph, opt_global=.true.) !global indices
     rhop3(:,:,:,:) = one
-    call alloc_z(divu3, opt_global=.true.) !global indices
+    
+    call alloc_x(tap1, ph, .true.)
+    call alloc_y(tap2, ph, .true.)
+    call alloc_z(tap3, ph, .true.)
 
     ! !TRIPPING
     !A_trip=1.

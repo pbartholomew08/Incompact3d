@@ -1046,10 +1046,11 @@ contains
     use param, only : iimplicit
     use variables
 
-    use var, only : rhop1, ta1, tb1, di1
-    use var, only : rhop2, uy2, ta2, tb2, di2
-    use var, only : uz3, ta3, di3
-    USE var, ONLY: ta1, tb1, tc1, pp1, pgy1, pgz1, di1, &
+    use var, only : rhop1, tap1
+    use var, only : rhop2, uy2, tap2, tb2, di2
+    use var, only : uz3, tap3, di3
+    use var, only : ph
+    USE var, ONLY : pp1, pgy1, pgz1, di1, &
          duxdxp2, uyp2, uzp2, duydypi2, upi2, ta2, dipp2, &
          duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize
 
@@ -1072,41 +1073,49 @@ contains
     xi = size(rhop1, 1); xj = size(rhop1, 2); xk = size(rhop1, 3)
     yi = size(rhop2, 1); yj = size(rhop2, 2); yk = size(rhop2, 3)
     zi = size(rhop3, 1); zj = size(rhop3, 2); zk = size(rhop3, 3)
+
+    !! Update rhop in Y and X pencils
+    call transpose_z_to_y(rhop3(:,:,:,1), rhop2, ph)
+    call transpose_y_to_x(rhop2, rhop1, ph)
     
     !! X derivative
-    call transpose_z_to_y(rhop3, rhop2)
-    call transpose_y_to_x(rhop2, rhop1)
-    call derx (ta1, rhop1, di1, sx, ffxp, fsxp, fwxp, xi, xj, xk, 1)
-    call transpose_x_to_y(ta1, ta2)
-    call transpose_y_to_z(ta2, ta3)
+    call derx (tap1, rhop1, di1, sx, ffxp, fsxp, fwxp, xi, xj, xk, 1)
+    call transpose_x_to_y(tap1, tap2, ph)
+    call transpose_y_to_z(tap2, tap3, ph)
+    
     call interxvp(pp1,ux1,di1,sx,cfx6,csx6,cwx6,xsize(1),nxmsize,xsize(2),xsize(3),0)
     call transpose_x_to_y(pp1,duxdxp2,ph4)!->NXM NY NZ
     call interyvp(upi2,duxdxp2,dipp2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
     call transpose_y_to_z(duydypi2,duxydxyp3,ph3)!->NXM NYM NZ
     call interzvp(po3,duxydxyp3,dipp3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
          (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
-    drhop3(:,:,:,1) = -po3(:,:,:) * ta3(:,:,:)
+
+    drhop3(:,:,:,1) = -po3(:,:,:) * tap3(:,:,:)
     
     !! Y derivative
-    call dery (ta2, rhop2, di2, sy, ffyp, fsyp, fwyp, ppy, yi, yj, yk, 1)
-    call transpose_y_to_z(ta2, ta3)
+    call dery (tap2, rhop2, di2, sy, ffyp, fsyp, fwyp, ppy, yi, yj, yk, 1)
+    call transpose_y_to_z(tap2, tap3, ph)
+    
     call interxvp(pgy1,uy1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
     call transpose_x_to_y(pgy1,uyp2,ph4)
     call interyvp(duydypi2,uyp2,dipp2,sy,cfy6,csy6,cwy6,ppyi,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),0)
     call transpose_y_to_z(duydypi2,duxydxyp3,ph3)!->NXM NYM NZ
     call interzvp(po3,duxydxyp3,dipp3,sz,cifzp6,ciszp6,ciwzp6,(ph1%zen(1)-ph1%zst(1)+1),&
          (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,1)
-    drhop3(:,:,:,1) = drhop3(:,:,:,1) - po3(:,:,:) * ta3(:,:,:)
+
+    drhop3(:,:,:,1) = drhop3(:,:,:,1) - po3(:,:,:) * tap3(:,:,:)
     
     !! Z derivative
-    call derz (ta3, rhop3, di3, sz, ffzp, fszp, fwzp, zi, zj, zk, 1)
+    call derz (tap3, rhop3, di3, sz, ffzp, fszp, fwzp, zi, zj, zk, 1)
+
     call interxvp(pgz1,uz1,di1,sx,cifxp6,cisxp6,ciwxp6,xsize(1),nxmsize,xsize(2),xsize(3),1)
     call transpose_x_to_y(pgz1,uzp2,ph4)
     call interyvp(upi2,uzp2,dipp2,sy,cifyp6,cisyp6,ciwyp6,(ph1%yen(1)-ph1%yst(1)+1),ysize(2),nymsize,ysize(3),1)
     call transpose_y_to_z(upi2,uzp3,ph3)
     call interzvp(po3,uzp3,dipp3,sz,cfz6,csz6,cwz6,(ph1%zen(1)-ph1%zst(1)+1),&
          (ph1%zen(2)-ph1%zst(2)+1),zsize(3),nzmsize,0)
-    drhop3(:,:,:,1) = drhop3(:,:,:,1) - po3(:,:,:) * ta3(:,:,:)
+    
+    drhop3(:,:,:,1) = drhop3(:,:,:,1) - po3(:,:,:) * tap3(:,:,:)
 
     !! rho*divu
     drhop3(:,:,:,1) = drhop3(:,:,:,1) - rhop3(:,:,:,1) * divup3(:,:,:)
