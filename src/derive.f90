@@ -109,58 +109,19 @@ subroutine derx_11(tx,ux,rx,sx,ffx,fsx,fwx,nx,ny,nz,npaire,lind)
   real(mytype), dimension(nx):: ffx,fsx,fwx
   real(mytype)                      :: lind
 
+  real(mytype), dimension(nz, ny, nx) :: tmptx
+  integer, dimension(3) :: o, s
+  
   if (iibm.eq.2) call lagpolx(ux)
   if (iibm.eq.3) call cubsplx(ux,lind)
 
-  if (npaire==1) then
-     do k=1,nz
-        do j=1,ny
-           tx(1,j,k)=zero
-           tx(2,j,k)=afix*(ux(3,j,k)-ux(1,j,k))&
-                +bfix*(ux(4,j,k)-ux(2,j,k))
-           do i=3,nx-2
-              tx(i,j,k)=afix*(ux(i+1,j,k)-ux(i-1,j,k))&
-                   +bfix*(ux(i+2,j,k)-ux(i-2,j,k))
-           enddo
-           tx(nx-1,j,k)=afix*(ux(nx,j,k)-ux(nx-2,j,k))&
-                +bfix*(ux(nx-1,j,k)-ux(nx-3,j,k))
-           tx(nx,j,k)=zero
-           do i=2,nx
-              tx(i,j,k)=tx(i,j,k)-tx(i-1,j,k)*fsx(i)
-           enddo
-           tx(nx,j,k)=tx(nx,j,k)*fwx(nx)
-           do i=nx-1,1,-1
-              tx(i,j,k)=(tx(i,j,k)-ffx(i)*tx(i+1,j,k))*fwx(i)
-           enddo
-        enddo
-     enddo
-  endif
-  if (npaire==0) then
-     do k=1,nz
-        do j=1,ny
-           tx(1,j,k)=afix*(ux(2,j,k)+ux(2,j,k))&
-                +bfix*(ux(3,j,k)+ux(3,j,k))
-           tx(2,j,k)=afix*(ux(3,j,k)-ux(1,j,k))&
-                +bfix*(ux(4,j,k)+ux(2,j,k))
-           do i=3,nx-2
-              tx(i,j,k)=afix*(ux(i+1,j,k)-ux(i-1,j,k))&
-                   +bfix*(ux(i+2,j,k)-ux(i-2,j,k))
-           enddo
-           tx(nx-1,j,k)=afix*(ux(nx,j,k)-ux(nx-2,j,k))&
-                +bfix*((-ux(nx-1,j,k))-ux(nx-3,j,k))
-           tx(nx,j,k)=afix*((-ux(nx-1,j,k))-ux(nx-1,j,k))&
-                +bfix*((-ux(nx-2,j,k))-ux(nx-2,j,k))
-           do i=2,nx
-              tx(i,j,k)=tx(i,j,k)-tx(i-1,j,k)*fsx(i)
-           enddo
-           tx(nx,j,k)=tx(nx,j,k)*fwx(nx)
-           do i=nx-1,1,-1
-              tx(i,j,k)=(tx(i,j,k)-ffx(i)*tx(i+1,j,k))*fwx(i)
-           enddo
-        enddo
-     enddo
-  endif
-
+  s = (/ nz, ny, nx /)
+  o = (/ 3, 2, 1 /)
+  call derz_11(tmptx, reshape(ux, s, order=o), reshape(rx, s, order=o), &
+       sx, ffx, fsx, fwx, nz, ny, nx, npaire, lind)
+  s = (/ nx, ny, nz /)
+  tx = reshape(tmptx, s, order=o)
+  
   return
 end subroutine derx_11
 
