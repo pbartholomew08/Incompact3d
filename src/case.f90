@@ -80,7 +80,7 @@ contains
 
     elseif (itype.eq.itype_cyl) then
 
-       call init_cyl (ux1, uy1, uz1, phi1)
+       call init_cyl (rho1, ux1, uy1, uz1, phi1)
 
     elseif (itype.eq.itype_dbg) then
 

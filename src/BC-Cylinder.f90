@@ -205,7 +205,7 @@ contains
     return
   end subroutine outflow
   !********************************************************************
-  subroutine init_cyl (ux1,uy1,uz1,phi1)
+  subroutine init_cyl (rho1,ux1,uy1,uz1,phi1)
 
     USE decomp_2d
     USE decomp_2d_io
@@ -216,10 +216,11 @@ contains
 
     implicit none
 
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3),nrhotime) :: rho1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux1,uy1,uz1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar) :: phi1
 
-    real(mytype) :: y,um
+    real(mytype) :: x, y,um
     integer :: k,j,i,ii,is,code
 
     if (iscalar==1) then
@@ -229,6 +230,8 @@ contains
     endif
 
     ux1=zero; uy1=zero; uz1=zero
+
+    rho1(:,:,:,:) = 1.0_mytype
 
     if (iin.ne.0) then
        call system_clock(count=code)
@@ -263,6 +266,17 @@ contains
              enddo
           enddo
        enddo
+
+       if (ilmn) then
+         do i = 1, xsize(1)
+           x = real((i - 1), mytype) * dx - 0.5_mytype * xlx
+           if (abs(x) > 0.25_mytype * xlx) then
+             rho1(i, :, :, :) = dens1
+           else
+             rho1(i, :, :, :) = dens1 + (dens2 - dens1) * (1.0_mytype + cos(pi * (x / (0.25_mytype * xlx))))
+           end if
+         end do
+       end if
     endif
 
     !INIT FOR G AND U=MEAN FLOW + NOISE
